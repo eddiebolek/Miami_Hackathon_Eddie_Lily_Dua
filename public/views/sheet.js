@@ -19,15 +19,32 @@ export async function render(_arg, sig) {
   const wrap = h('div', {class: 'table-wrap sheet-wrap', tabindex: '0', role: 'region', 'aria-label': 'Company data table, scrolls sideways'}, h('table', {class: 'sheet'},
     h('caption', {class: 'sr-only'}, 'Company data, one row per company per month. Variances and the roll-forward check are calculated by the checker.'),
     h('thead', {}, h('tr', {}, h('th', {scope: 'col', class: 'sticky'}, 'Company and month'), COLS.map(c => h('th', {scope: 'col', class: 'num'}, HEAD[c.replace('v:', '')])), h('th', {scope: 'col'}, 'Cash roll-forward'))), tbody));
-  split.append(h('div', {class: 'stack'}, h('p', {class: 'hint legend'}, h('span', {class: 'swatch', 'aria-hidden': 'true'}), ' A corner mark means a suggested edit is open for that cell. Select any amount to suggest an edit. Arrow keys move between cells.'), wrap), panel);
+  // Large data (e.g. 2,400 rows) is shown 100 rows at a time so the page stays quick.
+  const PAGE = 100; let page = 0;
+  const pageInfo = h('p', {class: 'hint', 'aria-live': 'polite'});
+  const prev = h('button', {type: 'button', class: 'btn', onclick: () => goPage(page - 1)}, 'Previous 100');
+  const next = h('button', {type: 'button', class: 'btn', onclick: () => goPage(page + 1)}, 'Next 100');
+  const pager = h('nav', {class: 'actions', 'aria-label': 'Table pages', hidden: true}, prev, next, pageInfo);
+  function goPage(p) {
+    const forward = p > page; page = p; paintTable();
+    if ((forward ? next : prev).disabled) (forward ? prev : next).focus(); // keep focus on a button that still works
+    wrap.scrollIntoView({block: 'nearest'});
+  }
+  split.append(h('div', {class: 'stack'}, h('p', {class: 'hint legend'}, h('span', {class: 'swatch', 'aria-hidden': 'true'}), ' A corner mark means a suggested edit is open for that cell. Select any amount to suggest an edit. Arrow keys move between cells.'), pager, wrap), panel);
 
   const openFor = (rid, col) => sugs.filter(s => s.review_status === 'open' && s.record_id === rid && s.column === col);
 
   function paintTable() {
+    const pages = Math.max(1, Math.ceil(rows.length / PAGE));
+    page = Math.max(0, Math.min(page, pages - 1));
+    const shown = rows.slice(page * PAGE, (page + 1) * PAGE);
+    pager.hidden = pages < 2; prev.disabled = page === 0; next.disabled = page === pages - 1;
+    const info = `Rows ${(page * PAGE + 1).toLocaleString('en-US')} to ${(page * PAGE + shown.length).toLocaleString('en-US')} of ${rows.length.toLocaleString('en-US')} · page ${page + 1} of ${pages}`;
+    if (pageInfo.textContent !== info) pageInfo.textContent = info; // unchanged text is not re-announced on auto-refresh
     const had = tbody.contains(document.activeElement) && document.activeElement.dataset;
     const keep = had ? `${had.rid}|${had.col}` : null;
     const first = sel ? `${sel.rid}|${sel.col}` : keep;
-    tbody.replaceChildren(...rows.map(r => {
+    tbody.replaceChildren(...shown.map(r => {
       const tds = COLS.map(c => {
         if (c.startsWith('v:')) { const k = c.slice(2); return h('td', {class: 'num'}, money(r.computed?.[k], k, true)); }
         const open = openFor(r.record_id, c).length;
