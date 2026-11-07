@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.*
+!.env.example
+coverage/
+.DS_Store
+CLAUDE.md
+context/chief-of-staff-brief.md
+context/build-context.md
+.claude/
+graphify-out/

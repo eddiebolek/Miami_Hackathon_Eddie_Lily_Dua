@@ -1,0 +1,14 @@
+TEAM PROJECT BRIEF
+Team name: (to fill in)
+Challenge number: 8, Financial variance analysis, reframed around an industry problem: spreadsheet errors in budget-vs-actual reporting
+User and job role: Finance manager or controller who reviews an analyst's monthly budget-vs-actual spreadsheet before it goes to leadership (proposed)
+Pain point: Checking the spreadsheet by hand is slow and errors slip through. Field audits find errors in 24-91% of business spreadsheets (Panko, https://arxiv.org/pdf/0802.3457).
+One workflow we will improve: The monthly review and sign-off of the budget-vs-actual report
+Inputs and data sources: data/monthly_financials.csv (fictional source of truth, 3 companies x 12 months of 2026); a synthetic analyst spreadsheet built from it with planted, labeled errors
+Output or decision supported: Recommendations only. The app never edits the spreadsheet. For each problem it shows the cell, what looks wrong, the suggested value with the math, the source row and related cells; the person corrects their own sheet, marks each flag "corrected" or "no change needed" with a note, and signs off the report
+Three features in scope: (1) Upload a CSV and recompute every variance, percentage, total and cash roll-forward exactly in code; (2) A recommendation panel per problem with everything needed to correct it (explanation, suggested value and calculation, source row, related cells); (3) The person's own resolution per flag, saved, with a final sign-off
+What we will leave out: Real accounting-system connections, Excel formula parsing (CSV values only), department budgets, multiple currencies. AI summary only if time allows.
+Demo acceptance criteria: Clean sheet gives zero flags; a sheet with missing columns or bad numbers gives a clear error, not a crash; the error sheet gives exactly the planted errors in our answer key
+Tools and integrations: Node.js starter pack (lib/ money math), Vercel (hosting), Supabase (saving uploads and decisions). Optional AI provider for summaries.
+Source and permission notes: All financial data is fictional, from the Redhawk Builds starter pack. The analyst spreadsheet and its errors are synthetic and labeled as such.
+Known limitations: Checks CSV values, not spreadsheet formulas. Only revenue and opex have budgets in the data. No prior-year data, so "prior period" means prior month. Proven on synthetic errors, not real company spreadsheets.
