@@ -67,5 +67,5 @@ export function render(_arg, sig) {
   setView('Add data', h('div', {class: 'stack-lg'},
     h('div', {class: 'stack'}, h('h1', {}, 'Add data'),
       h('p', {class: 'muted'}, 'Add new rows (for example a new month) to the company\'s data. The checker validates them first and shows a preview. Existing rows are never edited or deleted.')),
-    h('div', {class: 'col-md stack'}, dz.input, dz.drop, h('div', {class: 'actions'}, templateLink())), out));
+    h('div', {class: 'col-md stack'}, dz.input, dz.drop, h('div', {class: 'actions'}, h('a', {class: 'btn', href: '#sheet'}, 'View full dataset'), templateLink())), out));
 }
