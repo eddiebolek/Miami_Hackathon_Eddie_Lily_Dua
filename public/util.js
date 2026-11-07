@@ -1,4 +1,5 @@
 // Shared helpers for every view. All text goes into the page through textContent / text nodes, never innerHTML.
+import {isExcel, excelToCsv} from './excel.js';
 export const $ = id => document.getElementById(id);
 export const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 export const ctx = {sb: null, team: null, teams: [], isOwner: false, isDev: false, role: null, reloadTeams: async () => {}, aiEnabled: true, uploads: null, modes: {}, chats: {}, onAuthLost: () => {}};
@@ -92,7 +93,8 @@ export async function loadUploads(force) {
 }
 // Validation details -> readable lines ("Row 9, column Actual: ...").
 export const detailLines = e => (e.details || []).map(x => [x.row != null ? `Row ${x.row}` : null, x.column ? `column ${x.column}` : null].filter(Boolean).join(', ') + (x.row != null || x.column ? ': ' : '') + x.message);
-export const readFile = file => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => no(r.error); r.readAsText(file); });
+export {isExcel};
+export const readFile = file => isExcel(file) ? excelToCsv(file) : new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => no(r.error); r.readAsText(file); });
 
 export function problemsBox(list, {retry, title} = {}) {
   return h('div', {class: 'problems', role: 'alert'},
@@ -103,8 +105,8 @@ export function problemsBox(list, {retry, title} = {}) {
 
 // File drop zone shared by Analysis and Add data. Calls onFile(file) with a File.
 export function dropZone(id, onFile, hint) {
-  const input = h('input', {type: 'file', id, accept: '.csv,text/csv', class: 'sr-only', onchange: () => { if (input.files[0]) onFile(input.files[0]); input.value = ''; }});
-  const idle = () => [h('p', {}, 'Drop a CSV here or'), h('label', {class: 'btn', for: id}, 'Choose file'), h('p', {class: 'hint'}, hint)];
+  const input = h('input', {type: 'file', id, accept: '.csv,text/csv,.xlsx,.xls', class: 'sr-only', onchange: () => { if (input.files[0]) onFile(input.files[0]); input.value = ''; }});
+  const idle = () => [h('p', {}, 'Drop a CSV or Excel file here or'), h('label', {class: 'btn', for: id}, 'Choose file'), h('p', {class: 'hint'}, hint)];
   const drop = h('div', {class: 'drop'}, ...idle());
   drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
   drop.addEventListener('dragleave', () => drop.classList.remove('over'));
@@ -153,9 +155,10 @@ function firstRecords(text, n) {
 
 // Calls onReady(null) when the headers already match ours, otherwise shows a "Match your columns" table in `mount`
 // and calls onReady({columns, assume_usd}) once the person confirms it.
-export async function matchColumns(csv, mount, onReady) {
+// force: always show the table (Excel files), so the person checks every match even when the names fit.
+export async function matchColumns(csv, mount, onReady, {force = false} = {}) {
   const [headers = [], sample = []] = firstRecords(csv, 2);
-  if (OURS.filter(c => !OPTIONAL.includes(c)).every(c => headers.includes(c))) return onReady(null);
+  if (!force && OURS.filter(c => !OPTIONAL.includes(c)).every(c => headers.includes(c))) return onReady(null);
   if (!headers.length || headers.some(x => !x)) return onReady(null); // the server explains a bad header row
   let suggestion = {mapping: {}, ai: []};
   mount.replaceChildren(h('p', {role: 'status', class: 'hint'}, 'Looking at your column names...'));
@@ -181,7 +184,7 @@ export async function matchColumns(csv, mount, onReady) {
     msg.textContent = why; go.disabled = Boolean(why);
   }
   mount.replaceChildren(h('div', {class: 'stack'}, h('h2', {}, 'Match your columns'),
-    h('p', {class: 'muted'}, 'Your column names differ from ours. Check each match, fix any that are wrong, then check the file. Values are read by code, never by AI.'),
+    h('p', {class: 'muted'}, `${force ? 'Excel file: the first sheet was read and each column placed where it looks like it belongs.' : 'Your column names differ from ours.'} Check each match, fix any that are wrong, then check the file. Values are read by code, never by AI.`),
     h('div', {class: 'table-wrap'}, h('table', {}, h('caption', {class: 'sr-only'}, 'Match each column in your file to one of ours'),
       h('thead', {}, h('tr', {}, ['Your column', 'Example value', 'Our column'].map(t => h('th', {scope: 'col'}, t)))),
       h('tbody', {}, headers.map((x, i) => h('tr', {}, h('th', {scope: 'row'}, x), h('td', {class: 'mono'}, sample[i] ?? ''),

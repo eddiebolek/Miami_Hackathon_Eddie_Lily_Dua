@@ -1,4 +1,4 @@
-import {h, ctx, api, setView, banner, announce, money, plural, period, sentence, sev, errMsg, detailLines, readFile, problemsBox, dropZone, matchColumns, templateLink} from '../util.js';
+import {h, ctx, api, setView, banner, announce, money, plural, period, sentence, sev, errMsg, detailLines, readFile, isExcel, problemsBox, dropZone, matchColumns, templateLink} from '../util.js';
 
 // Preview first, then an explicit "Add N rows" confirm. Existing rows are never changed.
 export function render(_arg, sig) {
@@ -11,7 +11,7 @@ export function render(_arg, sig) {
     if (f.size > 1_000_000) return out.append(problemsBox(['That file is over 1 MB.']));
     csv = await readFile(f).catch(() => null);
     if (csv == null) return out.append(problemsBox(['Could not read that file.']));
-    matchColumns(csv, out, m => preview(f, m));
+    matchColumns(csv, out, m => preview(f, m), {force: isExcel(f)});
   }
   async function preview(f, m) {
     map = m; out.replaceChildren(); dz.busy(`Checking ${f.name}...`);

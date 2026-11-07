@@ -1,4 +1,4 @@
-import {h, ctx, api, q, setView, banner, announce, reduce, money, plural, when, cleanName, errMsg, aiMsg, modeBadge, inferMode, aiLabel, loadUploads, detailLines, readFile, problemsBox, dropZone, matchColumns, templateLink, ApiErr} from '../util.js';
+import {h, ctx, api, q, setView, banner, announce, reduce, money, plural, when, cleanName, errMsg, aiMsg, modeBadge, inferMode, aiLabel, loadUploads, detailLines, readFile, isExcel, problemsBox, dropZone, matchColumns, templateLink, ApiErr} from '../util.js';
 
 const MODE_TEXT = {
   source: 'This upload was compared with the company\'s saved true copy, so changed, mistyped and wrong-month numbers are caught as well as math errors.',
@@ -18,7 +18,7 @@ export async function render(openId, sig) {
     const csv = await readFile(file).catch(() => null);
     if (csv == null) return problems(['Could not read that file.']);
     lastCsv = csv;
-    matchColumns(csv, status, m => send(file, csv, m));
+    matchColumns(csv, status, m => send(file, csv, m), {force: isExcel(file)});
   }
   async function send(file, csv, mapping) {
     lastFile = file; lastCsv = csv; lastMap = mapping; status.replaceChildren(); banner(null);
