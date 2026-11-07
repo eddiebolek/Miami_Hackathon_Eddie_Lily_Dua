@@ -76,6 +76,7 @@ function paintResult(root, id, {dataset, flags, summary}) {
       stat(total, plural(total, 'flag').replace(/^\d+ /, ''), total ? '' : 'ok'), stat(bySev.high ?? 0, 'Mismatch', 'high'), stat(total - (bySev.high ?? 0), 'Needs review', 'review'), stat(byStatus.open ?? 0, 'Open', '')),
     total ? null : h('div', {class: 'zero', role: 'status'}, h('p', {}, h('strong', {}, 'No mismatches found.'), ' Every variance, total and roll-forward checked matches.')),
     cos.length ? h('div', {class: 'stack'}, h('h3', {}, 'Company summary'),
+      h('p', {class: 'summary'}, `${cos.length.toLocaleString('en-US')} ${cos.length === 1 ? 'company' : 'companies'} · ${cos.reduce((t, c) => t + c.months, 0).toLocaleString('en-US')} rows checked · one row per company below`),
       h('div', {class: 'table-wrap'}, h('table', {},
         h('caption', {class: 'sr-only'}, 'Totals and variances per company, calculated by the checker in code'),
         h('thead', {}, h('tr', {}, h('th', {scope: 'col'}, 'Company'), h('th', {scope: 'col', class: 'num'}, 'Months'), h('th', {scope: 'col'}, 'Through'),
