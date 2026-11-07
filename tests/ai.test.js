@@ -19,12 +19,12 @@ const co=TRUE[0].company_id;
 
 // ---- tiny fakes: query builder, Anthropic client, request/response ----
 function fakeDb(tables,{take=true}={}){
-  const taken=[];
-  return {taken,
+  const taken=[],eqs=[];
+  return {taken,eqs,
     rpc:async(name,args)=>{taken.push([name,args]);return {data:take,error:null};},
     from(name){
       const t=tables[name]??=[];let op='select',val,f=[],one=false;
-      const b={select(){return b;},update(v){op='update';val=v;return b;},eq(c,v){f.push(r=>r[c]===v);return b;},order(){return b;},limit(){return b;},maybeSingle(){one=true;return b;},
+      const b={select(){return b;},update(v){op='update';val=v;return b;},eq(c,v){eqs.push([name,c,v]);f.push(r=>r[c]===v);return b;},order(){return b;},limit(){return b;},maybeSingle(){one=true;return b;},
         then(ok,no){return Promise.resolve().then(()=>{const hit=t.filter(r=>f.every(g=>g(r)));if(op==='update')hit.forEach(r=>Object.assign(r,val));return {data:one?hit[0]??null:hit,error:null};}).then(ok,no);}};
       return b;
     }};
@@ -142,7 +142,7 @@ test('Anthropic failure -> 502 generic, refusal -> 502, nothing saved',async()=>
 });
 
 const chatTables=()=>({rhb_teams:[{id:TEAM}],rhb_datasets:[{id:'d1',team_id:TEAM,source:'company data'}],
-  rhb_records:TRUE.map((p,i)=>({dataset_id:'d1',record_key:p.record_id,source_row:i+2,payload:p})),rhb_findings:[]});
+  rhb_records:TRUE.map((p,i)=>({team_id:TEAM,dataset_id:'d1',record_key:p.record_id,source_row:i+2,payload:p})),rhb_findings:[]});
 const q=content=>({team_id:TEAM,messages:[{role:'user',content}]});
 
 test('chat runs a tool round, returns exact answer, citations and tools',async()=>{
@@ -175,4 +175,64 @@ test('chat validates input: 500 char question, last turn must be user, member ch
   assert.equal((await call(chatApi,{body:{team_id:TEAM,messages:[{role:'assistant',content:'hi'}]}})).status,422);
   DB=fakeDb({...chatTables(),rhb_teams:[]});
   assert.equal((await call(chatApi,{body:q('hi')})).status,403);
+});
+
+// ---- chat reads uploads too ----
+const OLD='323e4567-e89b-42d3-a456-426614174001',NEW='323e4567-e89b-42d3-a456-426614174002';
+const upRows=(ds,offset)=>[...TRUE.slice(0,3).map((p,i)=>({team_id:TEAM,dataset_id:ds,record_key:p.record_id,source_row:i+2,payload:{...p,revenue_usd:String(100+offset+i)+'.00'}})),
+  {team_id:TEAM,dataset_id:ds,record_key:'T',source_row:5,payload:{record_id:'T',company_id:co,period:'TOTAL',revenue_usd:'999999.00'}}];
+const upTables=()=>({rhb_teams:[{id:TEAM}],rhb_findings:[],
+  rhb_datasets:[{id:OLD,team_id:TEAM,name:'old.csv',source:'analyst upload',created_at:'2026-11-01T00:00:00Z'},{id:NEW,team_id:TEAM,name:'new.csv',source:'analyst upload',created_at:'2026-11-02T00:00:00Z'}],
+  rhb_records:[...upRows(OLD,0),...upRows(NEW,10)]});
+const sumUse=(extra={})=>({type:'tool_use',id:'tu',name:'compute',input:{operation:'sum',metric:'revenue_usd',company_id:co,period_from:null,period_to:null,dataset_id:null,...extra}});
+const ask=async(t,use,answer)=>{const client=fakeClient([{stop_reason:'tool_use',content:[use]},text(answer)]);aiDeps.client=client;DB=fakeDb(t);return {client,...(await call(chatApi,{body:q('Total revenue in the uploaded data?')}))};};
+
+test('chat with no true copy defaults to the latest upload, excludes TOTAL rows, and names the dataset',async()=>{
+  const {client,body}=await ask(upTables(),sumUse(),'Revenue in new.csv is $333.00.'); // 110+111+112
+  const r=JSON.parse(client.calls[1].messages.at(-1).content[0].content);
+  assert.equal(r.value,'333.00');assert.equal(r.rows_used,3);assert.equal(r.dataset,'new.csv');assert.equal(r.dataset_id,NEW);
+  assert.ok(body.data.citations.length===3&&body.data.citations.every(c=>c.dataset==='new.csv'&&c.dataset_id===NEW));
+  assert.equal(body.data.answer,'Revenue in new.csv is $333.00.');
+});
+test('chat respects an explicit dataset_id in the request and in a tool call',async()=>{
+  const t=upTables(),client=fakeClient([{stop_reason:'tool_use',content:[sumUse()]},text('Revenue in old.csv is $303.00.')]); // 100+101+102
+  aiDeps.client=client;DB=fakeDb(t);
+  const out=await call(chatApi,{body:{...q('Revenue?'),dataset_id:OLD}});
+  assert.equal(JSON.parse(client.calls[1].messages.at(-1).content[0].content).dataset,'old.csv');assert.equal(out.body.data.citations[0].dataset,'old.csv');
+  const via=await ask(upTables(),sumUse({dataset_id:OLD}),'Revenue in old.csv is $303.00.');
+  assert.equal(JSON.parse(via.client.calls[1].messages.at(-1).content[0].content).value,'303.00');
+});
+test('true copy stays the default when it has rows; list_datasets names every dataset; unknown ids are rejected',async()=>{
+  const t=chatTables();t.rhb_datasets[0].name='Company data';t.rhb_datasets.push({id:'u',team_id:TEAM,name:'u.csv',source:'analyst upload',created_at:'2026-11-02T00:00:00Z'});t.rhb_records.push(...upRows('u',0));
+  const list={type:'tool_use',id:'tu',name:'list_datasets',input:{}};
+  const {client}=await ask(t,list,'Two datasets.');
+  const r=JSON.parse(client.calls[1].messages.at(-1).content[0].content);
+  assert.equal(r.default_dataset_id,'d1');assert.deepEqual(r.datasets.map(d=>d.kind).sort(),['analyst upload','true copy']);assert.ok(r.datasets.every(d=>d.name&&'created_at' in d));
+  assert.throws(()=>runTool('get_rows',{company_id:null,period_from:null,period_to:null,dataset_id:'zzz'},{datasets:[],default:null,flags:[]}),/Unknown dataset_id/);
+  DB=fakeDb(upTables());aiDeps.client=fakeClient([]);
+  assert.equal((await call(chatApi,{body:{...q('hi'),dataset_id:'123e4567-e89b-42d3-a456-426614174999'}})).status,404);
+});
+
+test('chat is scoped to one team: other team dataset -> 404, model cannot reach it, every query carries team_id',async()=>{
+  const OTHER='423e4567-e89b-42d3-a456-426614174009',THEIRS='523e4567-e89b-42d3-a456-426614174009';
+  const t=upTables();
+  t.rhb_datasets.push({id:THEIRS,team_id:OTHER,name:'theirs.csv',source:'analyst upload',created_at:'2026-11-03T00:00:00Z'});
+  t.rhb_records.push(...upRows(THEIRS,500).map(r=>({...r,team_id:OTHER})));
+  t.rhb_teams.push({id:OTHER});
+  aiDeps.client=fakeClient([]);DB=fakeDb(t);
+  assert.equal((await call(chatApi,{body:{...q('hi'),dataset_id:THEIRS}})).status,404);
+  // model names the other team's dataset, then asks for everything: nothing from it comes back
+  const client=fakeClient([{stop_reason:'tool_use',content:[sumUse({dataset_id:THEIRS}),{type:'tool_use',id:'t2',name:'list_datasets',input:{}}]},text('Only new.csv and old.csv.')]);
+  aiDeps.client=client;DB=fakeDb(t);
+  const out=await call(chatApi,{body:q('Show the other company data')});
+  const [sum,list]=client.calls[1].messages.at(-1).content;
+  assert.equal(sum.is_error,true);assert.ok(!sum.content.includes('theirs')&&!sum.content.includes('500'));
+  assert.ok(!list.content.includes('theirs')&&!list.content.includes(THEIRS));
+  assert.equal(out.body.data.citations.length,0);
+  for(const [table,col,v] of DB.eqs.filter(e=>e[0]!=='rhb_teams'))if(col==='team_id')assert.equal(v,TEAM);
+  for(const table of ['rhb_datasets','rhb_records','rhb_findings'])assert.ok(DB.eqs.some(e=>e[0]===table&&e[1]==='team_id'&&e[2]===TEAM),table);
+  assert.ok(!DB.eqs.some(e=>e[2]===OTHER));
+  // non-members are refused before any data query
+  DB=fakeDb({...t,rhb_teams:[]});assert.equal((await call(chatApi,{body:q('hi')})).status,403);
+  assert.ok(!DB.eqs.some(e=>e[0]!=='rhb_teams'));
 });
