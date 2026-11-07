@@ -1,4 +1,4 @@
-import {h, ctx, api, q, setView, banner, announce, reduce, money, plural, when, cleanName, errMsg, aiMsg, modeBadge, inferMode, aiLabel, loadUploads, detailLines, readFile, problemsBox, dropZone, ApiErr} from '../util.js';
+import {h, ctx, api, q, setView, banner, announce, reduce, money, plural, when, cleanName, errMsg, aiMsg, modeBadge, inferMode, aiLabel, loadUploads, detailLines, readFile, problemsBox, dropZone, matchColumns, templateLink, ApiErr} from '../util.js';
 
 const MODE_TEXT = {
   source: 'This upload was compared with the company\'s saved true copy, so changed, mistyped and wrong-month numbers are caught as well as math errors.',
@@ -9,7 +9,7 @@ export async function render(openId, sig) {
   const status = h('div', {'aria-live': 'polite'});
   const result = h('section', {'aria-label': 'Analysis result'});
   const recentBox = h('div', {}, h('h2', {}, 'Past uploads'), h('p', {class: 'hint'}, 'Loading...'));
-  let lastFile = null;
+  let lastFile = null, lastCsv = null, lastMap = null;
 
   const dz = dropZone('file', run, 'USD, one row per company per month. Max 1 MB.');
   async function run(file) {
@@ -17,9 +17,14 @@ export async function render(openId, sig) {
     if (file.size > 1_000_000) return problems(['That file is over 1 MB. Export just the one sheet as CSV.']);
     const csv = await readFile(file).catch(() => null);
     if (csv == null) return problems(['Could not read that file.']);
+    lastCsv = csv;
+    matchColumns(csv, status, m => send(file, csv, m));
+  }
+  async function send(file, csv, mapping) {
+    lastFile = file; lastCsv = csv; lastMap = mapping; status.replaceChildren(); banner(null);
     dz.busy(`Checking ${file.name}...`); announce(`Checking ${file.name}`);
     try {
-      const out = await api('/api/checks', {method: 'POST', body: {team_id: ctx.team.id, filename: file.name, csv}});
+      const out = await api('/api/checks', {method: 'POST', body: {team_id: ctx.team.id, filename: file.name, csv, ...(mapping ? {mapping} : {})}});
       ctx.modes[out.dataset_id] = out.mode; ctx.uploads = null;
       announce(out.flag_count ? `Check complete: ${plural(out.flag_count, 'flag')} found.` : 'Check complete: no mismatches found.');
       location.hash = `#analysis/${out.dataset_id}`;
@@ -29,12 +34,12 @@ export async function render(openId, sig) {
       if (e.status === 422) { const d = detailLines(e); problems(d.length ? d : [e.message]); } else problems([errMsg(e)], true);
     }
   }
-  function problems(list, retry) { status.replaceChildren(problemsBox(list, {retry: retry && (() => run(lastFile)), title: retry ? 'Could not check the file' : undefined})); }
+  function problems(list, retry) { status.replaceChildren(problemsBox(list, {retry: retry && (() => send(lastFile, lastCsv, lastMap)), title: retry ? 'Could not check the file' : undefined})); }
 
   setView('Analysis', h('div', {class: 'stack-lg'},
     h('div', {class: 'stack'}, h('h1', {}, 'Analysis'),
       h('p', {class: 'muted'}, 'Upload the full company data file. The checker recomputes every variance, total and cash roll-forward in code, then you can ask the AI to write up what to look at first.')),
-    h('div', {class: 'col-md'}, dz.input, dz.drop, status), result, recentBox));
+    h('div', {class: 'col-md stack'}, dz.input, dz.drop, h('div', {class: 'actions'}, templateLink()), status), result, recentBox));
 
   loadUploads(true).then(list => {
     if (sig.stale()) return;

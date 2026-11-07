@@ -27,7 +27,7 @@ export function setView(title, ...nodes) {
   banner(null);
   const main = $('main');
   main.replaceChildren(...nodes);
-  document.title = `${title} · Sheet Check`;
+  document.title = `${title} · Tally`;
   const h1 = main.querySelector('h1');
   h1?.setAttribute('tabindex', '-1');
   h1?.focus({preventScroll: true});
@@ -126,3 +126,66 @@ export const refreshBar = (onClick) => {
   const btn = h('button', {type: 'button', class: 'btn', onclick: onClick}, 'Refresh');
   return {node: h('div', {class: 'refresh'}, btn, stamp), stamp, btn, mark: () => { stamp.textContent = `Updated ${clock()}`; }};
 };
+
+// ---------- column matching ----------
+// Our column names (same list as lib/checker.js). The page only offers choices; the server parses every value.
+const OURS = ['record_id', 'company_id', 'period', 'currency', 'revenue_usd', 'budget_revenue_usd', 'revenue_variance_usd', 'revenue_variance_pct', 'opex_usd', 'budget_opex_usd', 'opex_variance_usd', 'opex_variance_pct', 'opening_cash_usd', 'cash_receipts_usd', 'cash_operating_payments_usd', 'capex_usd', 'financing_usd', 'closing_cash_usd'];
+const OPTIONAL = ['revenue_variance_usd', 'revenue_variance_pct', 'opex_variance_usd', 'opex_variance_pct'];
+const REQ = OURS.filter(c => !['record_id', 'currency', ...OPTIONAL].includes(c));
+const LABEL = {record_id: 'Record id (made up if blank)', currency: 'Currency'};
+export const templateLink = () => h('a', {class: 'btn', href: '/template.csv', download: 'tally-template.csv'}, 'Download template');
+
+// First n records of a CSV as arrays of strings (quotes and embedded commas handled).
+function firstRecords(text, n) {
+  const out = []; let row = [], f = '', q = false;
+  text = text.replace(/^﻿/, '');
+  for (let i = 0; i < text.length && out.length < n; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(f); f = ''; out.push(row); row = []; }
+    else f += c;
+  }
+  if (out.length < n && (f || row.length)) { row.push(f); out.push(row); }
+  return out;
+}
+
+// Calls onReady(null) when the headers already match ours, otherwise shows a "Match your columns" table in `mount`
+// and calls onReady({columns, assume_usd}) once the person confirms it.
+export async function matchColumns(csv, mount, onReady) {
+  const [headers = [], sample = []] = firstRecords(csv, 2);
+  if (OURS.filter(c => !OPTIONAL.includes(c)).every(c => headers.includes(c))) return onReady(null);
+  if (!headers.length || headers.some(x => !x)) return onReady(null); // the server explains a bad header row
+  let suggestion = {mapping: {}, ai: []};
+  mount.replaceChildren(h('p', {role: 'status', class: 'hint'}, 'Looking at your column names...'));
+  try { suggestion = await api('/api/map-columns', {method: 'POST', body: {team_id: ctx.team.id, headers: headers.slice(0, 60), sample_rows: []}}); } catch (e) { if (e.status === 401) return; }
+  const selects = headers.map(x => {
+    const s = h('select', {'aria-label': `Our column for "${x}"`}, h('option', {value: ''}, 'Do not use'),
+      OURS.map(c => h('option', {value: c}, `${LABEL[c] || c}${REQ.includes(c) ? ' (required)' : ''}`)));
+    s.value = suggestion.mapping?.[x] || ''; s.addEventListener('change', update); return s;
+  });
+  const usd = h('input', {type: 'checkbox', id: 'is-usd'}); usd.addEventListener('change', update);
+  const usdRow = h('label', {class: 'check', for: 'is-usd'}, usd, ' This file is in US dollars');
+  const msg = h('p', {class: 'hint', role: 'status'});
+  const go = h('button', {type: 'button', class: 'btn primary', disabled: true, onclick: () => {
+    go.disabled = true; onReady({columns: Object.fromEntries(headers.map((x, i) => [x, selects[i].value || null])), assume_usd: usd.checked || undefined});
+  }}, 'Check file');
+  function update() {
+    const picked = selects.map(s => s.value).filter(Boolean);
+    const dup = picked.find((c, i) => picked.indexOf(c) !== i);
+    const lacking = REQ.filter(c => !picked.includes(c));
+    const hasCur = picked.includes('currency');
+    usdRow.hidden = hasCur;
+    const why = dup ? `${dup} is chosen twice. Match each of our columns once.` : lacking.length ? `Still to match: ${lacking.join(', ')}.` : !hasCur && !usd.checked ? 'Confirm the file is in US dollars.' : '';
+    msg.textContent = why; go.disabled = Boolean(why);
+  }
+  mount.replaceChildren(h('div', {class: 'stack'}, h('h2', {}, 'Match your columns'),
+    h('p', {class: 'muted'}, 'Your column names differ from ours. Check each match, fix any that are wrong, then check the file. Values are read by code, never by AI.'),
+    h('div', {class: 'table-wrap'}, h('table', {}, h('caption', {class: 'sr-only'}, 'Match each column in your file to one of ours'),
+      h('thead', {}, h('tr', {}, ['Your column', 'Example value', 'Our column'].map(t => h('th', {scope: 'col'}, t)))),
+      h('tbody', {}, headers.map((x, i) => h('tr', {}, h('th', {scope: 'row'}, x), h('td', {class: 'mono'}, sample[i] ?? ''),
+        h('td', {}, selects[i], suggestion.ai?.includes(x) ? h('span', {class: 'hint'}, ' Suggested by AI') : null)))))),
+    usdRow, msg, h('div', {class: 'actions'}, go)));
+  update();
+}

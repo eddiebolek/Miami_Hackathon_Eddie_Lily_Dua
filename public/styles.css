@@ -276,3 +276,9 @@ dialog[open] { animation: rise var(--dur-3) var(--ease); }
 #role-badge:empty { display: none; }
 dialog .actions { justify-content: flex-end; }
 td .btn { min-height: 40px; }
+
+/* column matching */
+.check { display: flex; align-items: center; gap: var(--sp-2); font-weight: 500; }
+.check input { width: 1.125rem; height: 1.125rem; }
+.check[hidden] { display: none; }
+td select { min-width: 14rem; max-width: 100%; }

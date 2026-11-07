@@ -1,4 +1,5 @@
 import {parseCSV} from '../lib/csv.js';
+import {applyMapping} from '../lib/mapping.js';
 import {checkSheet,loadSource} from '../lib/checker.js';
 import {summarize} from '../lib/summary.js';
 import {importRows} from '../lib/supabase.js';
@@ -25,14 +26,16 @@ export default route(['GET','POST'],async(req,res)=>{
 });
 
 async function create(db,req,res){
-  const {team_id,filename,csv}=await readBody(req);
+  const {team_id,filename,csv,mapping}=await readBody(req);
   const bad=[];
   if(!UUID.test(team_id||''))bad.push('team_id must be a uuid.');
   if(typeof filename!=='string'||!filename.trim()||filename.length>200)bad.push('filename must be 1 to 200 characters.');
   if(typeof csv!=='string'||!csv.trim()||Buffer.byteLength(csv)>1_000_000)bad.push('csv must be text, 1 MB or less.');
+  if(mapping!==undefined&&(!mapping||typeof mapping!=='object'||Array.isArray(mapping)))bad.push('mapping must be an object.');
   if(bad.length)fail(422,'invalid_request',bad.join(' '),bad.map(message=>({message})));
   let rows;
   try{rows=parseCSV(csv);}catch(e){fail(422,'invalid_sheet',`Could not read the file as CSV: ${e.message}`,[{row:null,column:null,message:e.message}]);}
+  if(mapping)rows=applyMapping(rows,mapping); // ValidationError -> 422 with details
   await requireMember(db,team_id);
   // With a true copy, compare against it; without one, run the checks that need only the file itself.
   const copy=(await trueCopy(db,team_id)).records;

@@ -6,6 +6,8 @@ import findings from '../api/findings.js';
 import companyData from '../api/company-data.js';
 import members from '../api/members.js';
 import companies from '../api/companies.js';
+import mapColumns from '../api/map-columns.js';
+import {suggestMapping} from '../lib/mapping.js';
 import {deps} from '../api/_lib.js';
 import {parseCSV} from '../lib/csv.js';
 import fs from 'node:fs';
@@ -218,4 +220,40 @@ test('findings: suggested edit is created and listed, never changes the data',as
   assert.equal((await call(findings,{url:`/api/findings?team_id=${ID}&status=bogus`,headers:authed})).status,422);
   const p=await call(findings,{method:'PATCH',url:`/api/findings?id=${ID}`,headers:authed,body:{decision:'no_change_needed',note:'ok'}});
   assert.equal(p.status,404); // fake has no row with that uuid; RLS-style "not yours"
+});
+
+// Synthetic company-format-b.csv: different headers and $/() formats; mapped in code, then checked like the clean sheet.
+test('checks: a mapping renames and normalizes the columns before checking',async()=>{
+  DB=withCopy();
+  const csv=csvOf('synthetic/company-format-b.csv'),{mapping}=suggestMapping(Object.keys(parseCSV(csv)[0]));
+  const r=await call(checks,{method:'POST',headers:authed,body:{team_id:ID,filename:'b.csv',csv,mapping:{columns:mapping,assume_usd:true}}});
+  assert.equal(r.status,201);assert.equal(r.body.data.mode,'source');assert.equal(r.body.data.flag_count,0);
+  const bad=await call(checks,{method:'POST',headers:authed,body:{team_id:ID,filename:'b.csv',csv,mapping:{columns:mapping}}});
+  assert.equal(bad.status,422);assert.match(bad.body.error.message,/US dollars/);
+  DB=empty();
+  assert.equal((await call(checks,{method:'POST',headers:authed,body:{team_id:ID,filename:'b.csv',csv,mapping:'x'}})).status,422);
+});
+test('company-data: a mapping is applied before validation',async()=>{
+  DB=empty();
+  const csv=csvOf('synthetic/company-format-b.csv'),{mapping}=suggestMapping(Object.keys(parseCSV(csv)[0]));
+  const rows=parseCSV(csv).filter(r=>r.Month!=='TOTAL');
+  const text='"'+Object.keys(rows[0]).join('","')+'"\n'+rows.map(r=>'"'+Object.values(r).join('","')+'"').join('\n')+'\n';
+  const r=await call(companyData,{method:'POST',headers:authed,body:{team_id:ID,filename:'b.csv',csv:text,mapping:{columns:mapping,assume_usd:true}}});
+  assert.equal(r.status,200);assert.equal(r.body.data.count,36);assert.equal(r.body.data.new_rows[0].revenue_usd,'86750.00');
+});
+test('map-columns: without an AI key it returns the code suggestion; bad input gives 422',async()=>{
+  delete process.env.ANTHROPIC_API_KEY;DB=empty();
+  const r=await call(mapColumns,{method:'POST',headers:authed,body:{team_id:ID,headers:['Entity','Sales','Mystery'],sample_rows:[{Entity:'a'}]}});
+  assert.equal(r.status,200);assert.equal(r.body.data.mapping.Sales,'revenue_usd');assert.equal(r.body.data.mapping.Mystery,null);assert.deepEqual(r.body.data.ai,[]);
+  assert.equal((await call(mapColumns,{method:'POST',headers:authed,body:{team_id:ID,headers:[]}})).status,422);
+});
+test('map-columns: AI sees header names only and its answer is validated',async()=>{
+  const {deps:ai}=await import('../lib/ai.js');const sent=[];
+  ai.client={messages:{create:async req=>{sent.push(req);return {content:[{type:'text',text:'{"Mystery":"capex_usd","Other":"not_a_column","Third":"capex_usd"}'}]};}}};
+  DB=fakeDb({rhb_teams:[{id:ID}]},{rpc:{rhb_ai_take:async()=>({data:true,error:null})}});
+  try{
+    const r=await call(mapColumns,{method:'POST',headers:authed,body:{team_id:ID,headers:['Entity','Mystery','Other','Third'],sample_rows:[{Mystery:'123456'}]}});
+    assert.equal(r.status,200);assert.equal(r.body.data.mapping.Mystery,'capex_usd');assert.equal(r.body.data.mapping.Other,null);assert.equal(r.body.data.mapping.Third,null);
+    assert.deepEqual(r.body.data.ai,['Mystery']);assert.ok(!JSON.stringify(sent).includes('123456'));
+  }finally{ai.client=null;}
 });

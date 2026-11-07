@@ -34,7 +34,7 @@ function showSignin(note) {
     h('div', {class: 'field'}, h('label', {for: 'si-pass'}, 'Password'), pass),
     err, btn);
   setView('Sign in', h('div', {class: 'col-sm stack-lg'},
-    h('div', {class: 'stack'}, h('p', {class: 'brand'}, 'Sheet Check'), h('h1', {}, 'Sign in'), h('p', {class: 'muted'}, 'Check a company\'s budget-vs-actual data before it goes out.')),
+    h('div', {class: 'stack'}, h('p', {class: 'brand'}, 'Tally'), h('h1', {}, 'Sign in'), h('p', {class: 'muted'}, 'Check a company\'s budget-vs-actual data before it goes out.')),
     h('div', {class: 'card'}, form),
     h('p', {class: 'caption'}, 'Demo data is fictional. The app recommends; you make the changes.')));
   email.focus();

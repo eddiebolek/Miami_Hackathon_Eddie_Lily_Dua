@@ -1,0 +1,3 @@
+"record_id","company_id","period","currency","revenue_usd","budget_revenue_usd","revenue_variance_usd","revenue_variance_pct","opex_usd","budget_opex_usd","opex_variance_usd","opex_variance_pct","opening_cash_usd","cash_receipts_usd","cash_operating_payments_usd","capex_usd","financing_usd","closing_cash_usd"
+"FIN-1-01","CO-001","2026-01","USD","86750.00","83750.00","3000.00","3.58","76000.00","74000.00","2000.00","2.70","500000.00","86750.00","106362.50","1500.00","0.00","478887.50"
+"FIN-1-02","CO-001","2026-02","USD","88500.00","85500.00","3000.00","3.51","76000.00","74000.00","2000.00","2.70","478887.50","88500.00","106975.00","1500.00","0.00","458912.50"

@@ -1,4 +1,5 @@
 import {parseCSV} from '../lib/csv.js';
+import {applyMapping} from '../lib/mapping.js';
 import {checkSheet,validateSheet} from '../lib/checker.js';
 import {minor,amount,divideRound} from '../lib/finance.js';
 import {route,auth,readBody,fail,send,checked,requireMember,trueCopy,UUID} from './_lib.js';
@@ -27,15 +28,17 @@ function computed(r){
 }
 
 async function add(db,req,res){
-  const {team_id,filename,csv,confirm}=await readBody(req);
+  const {team_id,filename,csv,confirm,mapping}=await readBody(req);
   const bad=[];
   if(!UUID.test(team_id||''))bad.push('team_id must be a uuid.');
   if(typeof filename!=='string'||!filename.trim()||filename.length>200)bad.push('filename must be 1 to 200 characters.');
   if(typeof csv!=='string'||!csv.trim()||Buffer.byteLength(csv)>1_000_000)bad.push('csv must be text, 1 MB or less.');
   if(confirm!==undefined&&typeof confirm!=='boolean')bad.push('confirm must be true or false.');
+  if(mapping!==undefined&&(!mapping||typeof mapping!=='object'||Array.isArray(mapping)))bad.push('mapping must be an object.');
   if(bad.length)fail(422,'invalid_request',bad.join(' '),bad.map(message=>({message})));
   let rows;
   try{rows=parseCSV(csv);}catch(e){fail(422,'invalid_sheet',`Could not read the file as CSV: ${e.message}`,[{row:null,column:null,message:e.message}]);}
+  if(mapping)rows=applyMapping(rows,mapping); // ValidationError -> 422 with details
   validateSheet(rows,null); // ValidationError -> 422 with details
   const dup=[],seenId=new Set(),seenKey=new Set();
   rows.forEach((r,i)=>{

@@ -1,9 +1,9 @@
-import {h, ctx, api, setView, banner, announce, money, plural, period, sentence, sev, errMsg, detailLines, readFile, problemsBox, dropZone} from '../util.js';
+import {h, ctx, api, setView, banner, announce, money, plural, period, sentence, sev, errMsg, detailLines, readFile, problemsBox, dropZone, matchColumns, templateLink} from '../util.js';
 
 // Preview first, then an explicit "Add N rows" confirm. Existing rows are never changed.
 export function render(_arg, sig) {
   const out = h('div', {class: 'stack-lg', 'aria-live': 'polite'});
-  let file = null, csv = null;
+  let file = null, csv = null, map = null;
 
   const dz = dropZone('add-file', pick, 'Same columns as the company data file. Max 1 MB. Only new months are accepted.');
   async function pick(f) {
@@ -11,9 +11,12 @@ export function render(_arg, sig) {
     if (f.size > 1_000_000) return out.append(problemsBox(['That file is over 1 MB.']));
     csv = await readFile(f).catch(() => null);
     if (csv == null) return out.append(problemsBox(['Could not read that file.']));
-    dz.busy(`Checking ${f.name}...`);
+    matchColumns(csv, out, m => preview(f, m));
+  }
+  async function preview(f, m) {
+    map = m; out.replaceChildren(); dz.busy(`Checking ${f.name}...`);
     try {
-      const prev = await api('/api/company-data', {method: 'POST', body: {team_id: ctx.team.id, filename: f.name, csv, confirm: false}});
+      const prev = await api('/api/company-data', {method: 'POST', body: {team_id: ctx.team.id, filename: f.name, csv, confirm: false, ...(map ? {mapping: map} : {})}});
       if (sig.stale()) return;
       dz.idle(); paintPreview(prev);
     } catch (e) {
@@ -23,7 +26,7 @@ export function render(_arg, sig) {
       const d = detailLines(e);
       out.replaceChildren(problemsBox(d.length ? d : [errMsg(e)], e.status === 409
         ? {title: 'Some of these rows are already in the company data. Nothing was added.'}
-        : e.status === 422 ? {} : {retry: () => pick(f), title: 'Could not check the file'}));
+        : e.status === 422 ? {} : {retry: () => preview(f, map), title: 'Could not check the file'}));
     }
   }
 
@@ -33,7 +36,7 @@ export function render(_arg, sig) {
     add.addEventListener('click', async () => {
       add.disabled = true; status.textContent = 'Adding...'; status.classList.remove('err-text');
       try {
-        const r = await api('/api/company-data', {method: 'POST', body: {team_id: ctx.team.id, filename: file.name, csv, confirm: true}});
+        const r = await api('/api/company-data', {method: 'POST', body: {team_id: ctx.team.id, filename: file.name, csv, confirm: true, ...(map ? {mapping: map} : {})}});
         ctx.uploads = null;
         announce(`Added ${plural(r.added, 'row')}.`);
         out.replaceChildren(h('div', {class: 'zero', role: 'status'}, h('p', {}, h('strong', {}, `Added ${plural(r.added, 'row')}.`), ' The spreadsheet and summary now include them. Existing rows were not changed.'),
@@ -62,5 +65,5 @@ export function render(_arg, sig) {
   setView('Add data', h('div', {class: 'stack-lg'},
     h('div', {class: 'stack'}, h('h1', {}, 'Add data'),
       h('p', {class: 'muted'}, 'Add new rows (for example a new month) to the company\'s data. The checker validates them first and shows a preview. Existing rows are never edited or deleted.')),
-    h('div', {class: 'col-md'}, dz.input, dz.drop), out));
+    h('div', {class: 'col-md stack'}, dz.input, dz.drop, h('div', {class: 'actions'}, templateLink())), out));
 }
