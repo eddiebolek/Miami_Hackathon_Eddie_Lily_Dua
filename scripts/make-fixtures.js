@@ -70,8 +70,22 @@ export function planFixtures(sourceRows){
   };
 }
 
+// One synthetic 2027-01 row per company, in the source file's columns, continuing each company's 2026 trend.
+// opening cash = December closing, so it passes internal checks together with data/monthly_financials.csv.
+export function newMonthRows(sourceRows){
+  return [...new Set(sourceRows.map(r=>r.company_id))].map((co,i)=>{
+    const mine=sourceRows.filter(r=>r.company_id===co),dec=mine.at(-1),nov=mine.at(-2),step=c=>amount(minor(dec[c])+minor(dec[c])-minor(nov[c]));
+    const revenue=step('revenue_usd'),cogs=amount(divideRound(minor(revenue)*35n,100n)),opex=dec.opex_usd;
+    const closing=minor(dec.closing_cash_usd)+minor(revenue)-(minor(cogs)+minor(opex))-minor(dec.capex_usd)+minor(dec.financing_usd);
+    return {...dec,record_id:`FIN-${i+1}-13`,period:'2027-01',revenue_usd:revenue,cogs_usd:cogs,opex_usd:opex,budget_revenue_usd:step('budget_revenue_usd'),
+      budget_opex_usd:dec.budget_opex_usd,opening_cash_usd:dec.closing_cash_usd,cash_receipts_usd:revenue,cash_operating_payments_usd:amount(minor(cogs)+minor(opex)),
+      closing_cash_usd:amount(closing)};
+  });
+}
+
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   const rows=parseCSV(fs.readFileSync(new URL('../data/monthly_financials.csv',import.meta.url),'utf8'));
   const dir=fileURLToPath(new URL('../data/synthetic/',import.meta.url));fs.mkdirSync(dir,{recursive:true});
   for(const [name,text] of Object.entries(planFixtures(rows)))fs.writeFileSync(dir+name,text);
+  fs.writeFileSync(dir+'new-month-2027-01.csv',toCSV(newMonthRows(rows)));
 }

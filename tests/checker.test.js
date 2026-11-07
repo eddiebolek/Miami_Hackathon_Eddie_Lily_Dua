@@ -153,3 +153,71 @@ test('typed_over: company_id typed over on an existing record gives one flag',()
   const rows=clone(sheet());rows.find(r=>r.record_id==='FIN-1-05').company_id='CO-002';
   const flags=checkSheet(rows,src);assert.deepEqual(types(flags),['typed_over:company_id']);assert.equal(flags[0].suggested_value,'CO-001');
 });
+
+// ---- Internal-only mode (source = null): checks that need no true copy ----
+const newMonth=read('new-month-2027-01.csv');
+const KEY=JSON.parse(fs.readFileSync(new URL('../data/synthetic/planted-errors.json',import.meta.url),'utf8')).errors;
+const INTERNAL=['wrong_variance','sign_flipped','wrong_percent','wrong_total','total_skips_row','total_double_counts','rollforward_break','rollforward_formula','missing_row'];
+const idOf=x=>`${x.sheet_row}|${x.column}|${x.type}`;
+
+test('acceptance 4a: internal mode, clean sheet has zero flags',()=>{
+  assert.deepEqual(checkSheet(read('analyst-sheet-clean.csv'),null),[]);
+});
+
+test('acceptance 4b: internal mode, error sheet = exactly the key entries of internal types',()=>{
+  // typed_over and wrong_period need a true copy to compare against, so internal mode cannot see them.
+  // Their totals/variances were built from the typed values, so nothing else disagrees internally.
+  const flags=checkSheet(read('analyst-sheet-errors.csv'),null);
+  assert.deepEqual(flags.map(idOf).sort(),KEY.filter(k=>INTERNAL.includes(k.type)).map(idOf).sort());
+  assert.equal(flags.length,8);
+  for(const f of flags)assert.equal(f.source.source_row,null);
+});
+
+test('internal mode: validation takes any YYYY-MM and optional variance columns, still rejects bad input',()=>{
+  const slim=sheet().map(({revenue_variance_usd,revenue_variance_pct,opex_variance_usd,opex_variance_pct,...r})=>r);
+  assert.deepEqual(checkSheet(slim,null),[]);
+  const p=clone(sheet());p[0].period='2027-13';assert.throws(()=>checkSheet(p,null),/2027-13/);
+  assert.throws(()=>checkSheet(sheet().map(({capex_usd,...r})=>r),null),/capex_usd/);
+  const c=clone(sheet());c[0].company_id='NEW-CO';assert.ok(Array.isArray(checkSheet(c,null)));
+});
+
+test('internal mode: duplicates by record id and by company+period, interior gap by month',()=>{
+  const dupId=clone(sheet());dupId.push({...dupId.find(r=>r.record_id==='FIN-1-05')});
+  assert.deepEqual(types(checkSheet(dupId,null)),['duplicate_row:null']);
+  const dupPeriod=clone(sheet());dupPeriod.push({...dupPeriod.find(r=>r.record_id==='FIN-1-05'),record_id:'FIN-1-99'});
+  assert.deepEqual(types(checkSheet(dupPeriod,null)),['duplicate_row:null']);
+  const gap=checkSheet(sheet({drop:['FIN-2-10']}),null);
+  assert.deepEqual(types(gap),['missing_row:null']);assert.equal(gap[0].period,'2026-10');assert.equal(gap[0].company_id,'CO-002');
+  assert.equal(gap[0].sheet_row,checkSheet(sheet({drop:['FIN-2-10']}),src)[0].sheet_row);
+});
+
+test('acceptance 5: source data + the 2027-01 month passes internal checks across the year boundary',()=>{
+  assert.equal(newMonth.length,3);
+  assert.ok(newMonth.every(r=>r.period==='2027-01'&&r.synthetic==='true'));
+  const all=[...src.rows,...newMonth];
+  assert.deepEqual(checkSheet(all,null),[]);
+});
+
+test('acceptance 5: a broken January opening is flagged as a roll-forward break against December',()=>{
+  const all=clone([...src.rows,...newMonth]);const bad=all.find(r=>r.record_id===newMonth[0].record_id);bad.opening_cash_usd='1.00';
+  const flags=checkSheet(all,null);
+  assert.deepEqual(types(flags),['rollforward_break:opening_cash_usd']);
+  assert.equal(flags[0].record_id,bad.record_id);
+  assert.ok(flags[0].related.some(r=>r.record_id==='FIN-1-12'&&r.column==='closing_cash_usd'));
+});
+
+test('a gap across the year boundary is a missing month, not a break',()=>{
+  const all=clone([...src.rows,...newMonth]).filter(r=>r.period!=='2026-12'||r.company_id!=='CO-001');
+  assert.deepEqual(types(checkSheet(all,null)),['missing_row:null']);
+});
+
+test('source mode still names the bundled period range',()=>{
+  const p=clone(sheet());p[0].period='2027-01';
+  assert.throws(()=>validateSheet(p,src),/2026-01 to 2026-12/);
+});
+
+test('loadSource label is used as the flag source file',()=>{
+  const s=loadSource(src.rows,{file:'Company data (true copy)'});
+  const flags=checkSheet(sheet({cells:{'FIN-1-03':{revenue_variance_usd:'3500.00'}}}),s);
+  assert.equal(flags[0].source.file,'Company data (true copy)');
+});

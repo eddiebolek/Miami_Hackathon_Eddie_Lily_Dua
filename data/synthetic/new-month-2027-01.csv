@@ -1,0 +1,4 @@
+"record_id","company_id","period","scenario","currency","revenue_usd","cogs_usd","opex_usd","budget_revenue_usd","budget_opex_usd","opening_cash_usd","cash_receipts_usd","cash_operating_payments_usd","capex_usd","financing_usd","closing_cash_usd","headcount","synthetic"
+"FIN-1-13","CO-001","2027-01","actual_synthetic","USD","107750.00","37712.50","76000.00","104750.00","74000.00","521725.00","107750.00","113712.50","1500.00","0.00","514262.50","15","true"
+"FIN-2-13","CO-002","2027-01","actual_synthetic","USD","112750.00","39462.50","82000.00","109750.00","80000.00","988725.00","112750.00","121462.50","1500.00","0.00","978512.50","18","true"
+"FIN-3-13","CO-003","2027-01","actual_synthetic","USD","117750.00","41212.50","88000.00","114750.00","86000.00","1455725.00","117750.00","129212.50","1500.00","0.00","1442762.50","21","true"
