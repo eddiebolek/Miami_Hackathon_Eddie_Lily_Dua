@@ -112,7 +112,11 @@ async function route() {
 addEventListener('hashchange', route);
 
 // ---------- start ----------
-$('team-pick').addEventListener('change', e => { const t = ctx.teams.find(x => x.id === e.target.value); if (t) { stop?.(); stop = null; nav++; selectTeam(t); } });
+$('team-pick').addEventListener('change', e => { const t = ctx.teams.find(x => x.id === e.target.value); if (t) {
+  // an open upload (#analysis/<id>) belongs to the old company, so drop it
+  if (location.hash.includes('/')) history.replaceState(null, '', location.hash.split('/')[0]);
+  stop?.(); stop = null; nav++; selectTeam(t);
+} });
 $('sign-out').addEventListener('click', async () => { await ctx.sb.auth.signOut().catch(() => {}); showSignin(); });
 (async function init() {
   try {
