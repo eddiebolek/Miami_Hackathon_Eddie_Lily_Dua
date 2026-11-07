@@ -164,6 +164,15 @@ td.stripe-cell { padding: 0; width: 3px; }
 @media (max-width: 480px) { .vs { grid-template-columns: 1fr; } .box .val { font-size: var(--fs-xl); } }
 .calc { font-family: var(--mono); font-size: var(--fs-sm); background: var(--info-bg); color: var(--text); border-radius: var(--r-sm); padding: var(--sp-2) var(--sp-3); overflow-wrap: anywhere; }
 .sec-label { font-size: var(--fs-sm); font-weight: 600; color: var(--text-2); }
+.reqs > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; gap: var(--sp-2); list-style: none; }
+.reqs > summary::-webkit-details-marker { display: none; }
+.reqs > summary::before { content: ''; flex: none; width: 8px; height: 8px; border: solid var(--text-2); border-width: 0 2px 2px 0; transform: rotate(-45deg); transition: transform var(--dur-2) var(--ease); }
+.reqs[open] > summary::before { transform: rotate(45deg); }
+.reqs > summary h2 { margin: 0; text-wrap: balance; }
+.reqs[open] > summary { margin-bottom: var(--sp-4); }
+.reqs ul { margin: 0; padding-left: var(--sp-6); display: grid; gap: var(--sp-1); }
+.reqs p, .reqs li { text-wrap: pretty; }
+.reqs .rec { color: var(--text); font-size: inherit; border-left: 3px solid var(--accent); padding-left: var(--sp-3); }
 details.source summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; color: var(--accent); font-size: var(--fs-sm); font-weight: 500; }
 details.source dl { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); overflow-wrap: anywhere; gap: 2px var(--sp-4); margin: var(--sp-2) 0 0; font-size: var(--fs-sm); background: var(--info-bg); padding: var(--sp-3); border-radius: var(--r-sm); }
 details.source dt { color: var(--text-2); font-family: var(--mono); }

@@ -18,6 +18,8 @@ export default route(['GET','POST'],async(req,res)=>{
 function computed(r){
   const out={};
   for(const n of ['revenue','opex']){
+    const b=r[`budget_${n}_usd`];
+    if(b==null||b===''){out[`${n}_variance_usd`]=out[`${n}_variance_pct`]=null;continue;} // no budget, no variance
     const exp=minor(r[`${n}_usd`])-minor(r[`budget_${n}_usd`]),bv=minor(r[`budget_${n}_usd`]);
     out[`${n}_variance_usd`]=amount(exp);
     out[`${n}_variance_pct`]=bv===0n?null:amount(divideRound(exp*10000n,bv));

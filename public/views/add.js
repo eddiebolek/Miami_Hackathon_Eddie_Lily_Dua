@@ -1,4 +1,4 @@
-import {h, ctx, api, setView, banner, announce, money, plural, period, sentence, sev, errMsg, detailLines, readFile, isExcel, problemsBox, dropZone, matchColumns, templateLink} from '../util.js';
+import {h, ctx, api, setView, banner, announce, money, plural, period, sentence, sev, errMsg, detailLines, readFile, isExcel, requirementsBox, problemsBox, dropZone, matchColumns, templateLink} from '../util.js';
 
 // Preview first, then an explicit "Add N rows" confirm. Existing rows are never changed.
 export function render(_arg, sig) {
@@ -6,8 +6,9 @@ export function render(_arg, sig) {
   let file = null, csv = null, map = null;
 
   const dz = dropZone('add-file', pick, 'Same columns as the company data file. Max 1 MB. Only new months are accepted.');
+  const reqs = requirementsBox();
   async function pick(f) {
-    file = f; out.replaceChildren(); banner(null);
+    file = f; out.replaceChildren(); banner(null); reqs.open = false;
     if (f.size > 1_000_000) return out.append(problemsBox(['That file is over 1 MB.']));
     csv = await readFile(f).catch(() => null);
     if (csv == null) return out.append(problemsBox(['Could not read that file.']));
@@ -67,5 +68,5 @@ export function render(_arg, sig) {
   setView('Add data', h('div', {class: 'stack-lg'},
     h('div', {class: 'stack'}, h('h1', {}, 'Add data'),
       h('p', {class: 'muted'}, 'Add new rows (for example a new month) to the company\'s data. The checker validates them first and shows a preview. Existing rows are never edited or deleted.')),
-    h('div', {class: 'col-md stack'}, dz.input, dz.drop, h('div', {class: 'actions'}, h('a', {class: 'btn', href: '#sheet'}, 'View full dataset'), templateLink())), out));
+    h('div', {class: 'col-md stack'}, dz.input, dz.drop, h('div', {class: 'actions'}, h('a', {class: 'btn', href: '#sheet'}, 'View full dataset'), templateLink()), reqs), out));
 }

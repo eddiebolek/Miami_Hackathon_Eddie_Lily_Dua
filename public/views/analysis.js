@@ -1,4 +1,4 @@
-import {h, ctx, api, q, setView, banner, announce, reduce, money, plural, when, cleanName, errMsg, aiMsg, modeBadge, inferMode, aiLabel, loadUploads, detailLines, readFile, isExcel, problemsBox, dropZone, matchColumns, templateLink, ApiErr} from '../util.js';
+import {h, ctx, api, q, setView, banner, announce, reduce, money, plural, when, cleanName, errMsg, aiMsg, modeBadge, inferMode, aiLabel, loadUploads, detailLines, readFile, isExcel, requirementsBox, problemsBox, dropZone, matchColumns, templateLink, ApiErr} from '../util.js';
 
 const MODE_TEXT = {
   source: 'This upload was compared with the company\'s saved true copy, so changed, mistyped and wrong-month numbers are caught as well as math errors.',
@@ -12,8 +12,9 @@ export async function render(openId, sig) {
   let lastFile = null, lastCsv = null, lastMap = null;
 
   const dz = dropZone('file', run, 'USD, one row per company per month. Max 1 MB.');
+  const reqs = requirementsBox();
   async function run(file) {
-    lastFile = file; status.replaceChildren(); banner(null);
+    lastFile = file; status.replaceChildren(); banner(null); reqs.open = false;
     if (file.size > 1_000_000) return problems(['That file is over 1 MB. Export just the one sheet as CSV.']);
     const csv = await readFile(file).catch(() => null);
     if (csv == null) return problems(['Could not read that file.']);
@@ -39,7 +40,7 @@ export async function render(openId, sig) {
   setView('Analysis', h('div', {class: 'stack-lg'},
     h('div', {class: 'stack'}, h('h1', {}, 'Analysis'),
       h('p', {class: 'muted'}, 'Upload the full company data file. The checker recomputes every variance, total and cash roll-forward in code, then you can ask the AI to write up what to look at first.')),
-    h('div', {class: 'col-md stack'}, dz.input, dz.drop, h('div', {class: 'actions'}, templateLink()), status), result, recentBox));
+    h('div', {class: 'col-md stack'}, dz.input, dz.drop, h('div', {class: 'actions'}, templateLink()), reqs, status), result, recentBox));
 
   loadUploads(true).then(list => {
     if (sig.stale()) return;

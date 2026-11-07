@@ -133,8 +133,26 @@ export const refreshBar = (onClick) => {
 // Our column names (same list as lib/checker.js). The page only offers choices; the server parses every value.
 const OURS = ['record_id', 'company_id', 'period', 'currency', 'revenue_usd', 'budget_revenue_usd', 'revenue_variance_usd', 'revenue_variance_pct', 'opex_usd', 'budget_opex_usd', 'opex_variance_usd', 'opex_variance_pct', 'opening_cash_usd', 'cash_receipts_usd', 'cash_operating_payments_usd', 'capex_usd', 'financing_usd', 'closing_cash_usd'];
 const OPTIONAL = ['revenue_variance_usd', 'revenue_variance_pct', 'opex_variance_usd', 'opex_variance_pct'];
-const REQ = OURS.filter(c => !['record_id', 'currency', ...OPTIONAL].includes(c));
+const BUDGETS = ['budget_revenue_usd', 'budget_opex_usd']; // optional but recommended: without them variances are not checked
+const REQ = OURS.filter(c => !['record_id', 'currency', ...OPTIONAL, ...BUDGETS].includes(c));
 const LABEL = {record_id: 'Record id (made up if blank)', currency: 'Currency'};
+// What an upload needs, shown under the drop zone on Analysis and Add data. Keep in step with REQUIRED in lib/mapping.js.
+// Open at first; the page folds it once a file is chosen so the column match below stays in view.
+export const requirementsBox = () => h('details', {class: 'card reqs', open: true},
+  h('summary', {}, h('h2', {}, 'What your file needs')),
+  h('div', {class: 'stack'},
+  h('p', {},'A CSV or Excel file (first sheet), in US dollars, one row per company per month, up to 1 MB. Your column names do not have to match ours: you match them after choosing the file.'),
+  h('div', {class: 'stack'}, h('h3', {class: 'sec-label'}, 'Required'),
+    h('ul', {}, h('li', {}, 'Company and month (for example 2026-03 or Mar 2026)'), h('li', {}, 'Revenue and operating expenses (opex)'),
+      h('li', {}, 'Opening cash, cash receipts, operating payments, capex, financing and closing cash'))),
+  h('div', {class: 'stack'}, h('h3', {class: 'sec-label rec'}, 'Budget revenue and budget opex: not required, but strongly recommended'),
+    h('p', {}, 'Without budgets, Tally cannot:'),
+    h('ul', {}, h('li', {}, 'check revenue and opex variances, in dollars and percent (the main budget-vs-actual check)'),
+      h('li', {}, 'check budget figures on totals rows'),
+      h('li', {}, 'show budget totals and variances in the company summary, or answer variance questions in Ask')),
+    h('p', {class: 'hint'}, 'Still checked without budgets: totals of actual figures, the cash roll-forward, duplicate and missing months, and the comparison with saved company data.')),
+  h('div', {class: 'stack'}, h('h3', {class: 'sec-label'}, 'Optional'),
+    h('p', {}, 'Record id, currency, and variance columns ($ and %). Variance columns are checked when they are included.'))));
 export const templateLink = () => h('a', {class: 'btn', href: '/template.csv', download: 'tally-template.csv'}, 'Download template');
 
 // First n records of a CSV as arrays of strings (quotes and embedded commas handled).
@@ -158,14 +176,14 @@ function firstRecords(text, n) {
 // force: always show the table (Excel files), so the person checks every match even when the names fit.
 export async function matchColumns(csv, mount, onReady, {force = false} = {}) {
   const [headers = [], sample = []] = firstRecords(csv, 2);
-  if (!force && OURS.filter(c => !OPTIONAL.includes(c)).every(c => headers.includes(c))) return onReady(null);
+  if (!force && REQ.every(c => headers.includes(c)) && ['record_id', 'currency'].every(c => headers.includes(c))) return onReady(null);
   if (!headers.length || headers.some(x => !x)) return onReady(null); // the server explains a bad header row
   let suggestion = {mapping: {}, ai: []};
   mount.replaceChildren(h('p', {role: 'status', class: 'hint'}, 'Looking at your column names...'));
   try { suggestion = await api('/api/map-columns', {method: 'POST', body: {team_id: ctx.team.id, headers: headers.slice(0, 60), sample_rows: []}}); } catch (e) { if (e.status === 401) return; }
   const selects = headers.map(x => {
     const s = h('select', {'aria-label': `Our column for "${x}"`}, h('option', {value: ''}, 'Do not use'),
-      OURS.map(c => h('option', {value: c}, `${LABEL[c] || c}${REQ.includes(c) ? ' (required)' : ''}`)));
+      OURS.map(c => h('option', {value: c}, `${LABEL[c] || c}${REQ.includes(c) ? ' (required)' : BUDGETS.includes(c) ? ' (recommended)' : ''}`)));
     s.value = suggestion.mapping?.[x] || ''; s.addEventListener('change', update); return s;
   });
   const usd = h('input', {type: 'checkbox', id: 'is-usd'}); usd.addEventListener('change', update);
