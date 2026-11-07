@@ -58,7 +58,7 @@ const empty=()=>fakeDb({rhb_teams:[{id:ID}]});
 test('config returns only the URL and publishable key',async()=>{
   process.env.SUPABASE_URL='https://x.supabase.co';process.env.SUPABASE_PUBLISHABLE_KEY='pk';
   const r=await call(config);
-  assert.equal(r.status,200);assert.deepEqual(r.body,{supabaseUrl:'https://x.supabase.co',publishableKey:'pk'});
+  assert.equal(r.status,200);assert.deepEqual(r.body,{supabaseUrl:'https://x.supabase.co',publishableKey:'pk',aiEnabled:false});
 });
 test('wrong method gives 405',async()=>{
   const r=await call(config,{method:'POST'});

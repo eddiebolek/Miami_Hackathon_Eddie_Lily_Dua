@@ -1,1 +1,1 @@
-{"outputDirectory":"public","functions":{"api/*.js":{"includeFiles":"data/**"}}}
+{"outputDirectory":"public","functions":{"api/*.js":{"includeFiles":"data/**"},"api/ai-report.js":{"maxDuration":60},"api/chat.js":{"maxDuration":60}}}
