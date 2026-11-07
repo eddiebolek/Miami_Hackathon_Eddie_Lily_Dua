@@ -47,19 +47,21 @@ export function render(_arg, sig) {
         const d = detailLines(e); status.textContent = (d[0] && e.status !== 500 ? d[0] : errMsg(e));
       }
     });
-    out.replaceChildren(
-      h('div', {class: 'stack'}, h('h2', {}, `Preview: ${plural(count, 'new row')}`),
-        h('p', {class: 'muted'}, `${file.name}. Nothing is saved until you press "Add ${plural(count, 'row')}".`),
-        h('div', {class: 'table-wrap'}, h('table', {},
-          h('caption', {class: 'sr-only'}, 'New rows to add'),
-          h('thead', {}, h('tr', {}, ['Record', 'Company', 'Period'].map(t => h('th', {scope: 'col'}, t)), ['Revenue', 'Opex', 'Opening cash', 'Closing cash'].map(t => h('th', {scope: 'col', class: 'num'}, t)))),
-          h('tbody', {}, rows.map(r => h('tr', {}, h('th', {scope: 'row', class: 'mono'}, r.record_id), h('td', {class: 'mono'}, r.company_id), h('td', {}, period(r.period)),
-            ['revenue_usd', 'opex_usd', 'opening_cash_usd', 'closing_cash_usd'].map(k => h('td', {class: 'num'}, money(r[k], k, true))))))))),
-      warnings.length ? h('div', {class: 'stack'}, h('h3', {}, `${plural(warnings.length, 'flag')} would appear on these rows`),
+    const warningsBox = warnings.length ? h('div', {class: 'stack'}, h('h3', {}, `${plural(warnings.length, 'flag')} would appear on these rows`),
         h('p', {class: 'muted'}, 'Adding is still allowed. These are mismatches the checker sees once the new rows are included; review them after adding.'),
         h('ul', {class: 'warns'}, warnings.map(w => h('li', {}, h('span', {class: `badge ${sev(w).cls}`}, sev(w).text), ' ', h('strong', {class: 'mono'}, w.cell || w.record_id), ' ', sentence(w.type), '. ', w.explanation))))
-        : h('div', {class: 'zero', role: 'status'}, h('p', {}, h('strong', {}, 'No problems found.'), ' The new rows pass every check, including opening cash against last month\'s closing cash.')),
-      h('div', {class: 'actions'}, add, h('button', {type: 'button', class: 'btn', onclick: () => { out.replaceChildren(); file = csv = null; }}, 'Cancel'), status));
+      : h('div', {class: 'zero', role: 'status'}, h('p', {}, h('strong', {}, 'No problems found.'), ' The new rows pass every check, including opening cash against last month\'s closing cash.'));
+    out.replaceChildren(
+      h('div', {class: 'stack'}, h('h2', {}, `Preview: ${plural(count, 'new row')}`),
+        h('p', {class: 'muted'}, `${file.name}. Nothing is saved until you press "Add ${plural(count, 'row')}".`)),
+      warningsBox,
+      // Buttons sit above the table so a long preview (2,400 rows) never hides them.
+      h('div', {class: 'actions'}, add, h('button', {type: 'button', class: 'btn', onclick: () => { out.replaceChildren(); file = csv = null; }}, 'Cancel'), status),
+      h('div', {class: 'table-wrap'}, h('table', {},
+        h('caption', {class: 'sr-only'}, 'New rows to add'),
+        h('thead', {}, h('tr', {}, ['Record', 'Company', 'Period'].map(t => h('th', {scope: 'col'}, t)), ['Revenue', 'Opex', 'Opening cash', 'Closing cash'].map(t => h('th', {scope: 'col', class: 'num'}, t)))),
+        h('tbody', {}, rows.map(r => h('tr', {}, h('th', {scope: 'row', class: 'mono'}, r.record_id), h('td', {class: 'mono'}, r.company_id), h('td', {}, period(r.period)),
+          ['revenue_usd', 'opex_usd', 'opening_cash_usd', 'closing_cash_usd'].map(k => h('td', {class: 'num'}, money(r[k], k, true)))))))));
   }
 
   setView('Add data', h('div', {class: 'stack-lg'},

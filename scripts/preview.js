@@ -29,4 +29,4 @@ http.createServer(async(req,res)=>{
     res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');
     res.end(body);
   }catch(e){console.error(e);res.status(500).end('Server error');}
-}).listen(4190,'127.0.0.1',()=>console.log('Preview at http://127.0.0.1:4190'));
+}).listen(+process.env.PORT||4190,'127.0.0.1',()=>console.log(`Preview at http://127.0.0.1:${+process.env.PORT||4190}`));
