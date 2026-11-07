@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Sheet Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar" id="topbar" hidden>
+  <span class="brand">Sheet Check</span>
+  <nav class="topnav" aria-label="Primary">
+    <button type="button" class="link" id="nav-upload">New check</button>
+  </nav>
+  <span class="who"><span id="team-name"></span><button type="button" class="link" id="sign-out">Sign out</button></span>
+</header>
+<div id="banner" class="banner" role="alert" hidden></div>
+<main id="main" tabindex="-1"></main>
+<p class="sr-only" id="live" role="status" aria-live="polite"></p>
+<script type="module" src="app.js"></script>
+</body>
+</html>
