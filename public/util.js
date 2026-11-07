@@ -106,7 +106,9 @@ export function problemsBox(list, {retry, title} = {}) {
 // File drop zone shared by Analysis and Add data. Calls onFile(file) with a File.
 export function dropZone(id, onFile, hint) {
   const input = h('input', {type: 'file', id, accept: '.csv,text/csv,.xlsx,.xls', class: 'sr-only', onchange: () => { if (input.files[0]) onFile(input.files[0]); input.value = ''; }});
-  const idle = () => [h('p', {}, 'Drop a CSV or Excel file here or'), h('label', {class: 'btn', for: id}, 'Choose file'), h('p', {class: 'hint'}, hint)];
+  // Same wording as the requirements box (requirementsBox below).
+  const idle = () => [h('p', {}, 'Drop your monthly budget vs actual sheet (CSV or Excel) here or'), h('label', {class: 'btn', for: id}, 'Choose file'), h('p', {class: 'hint'}, hint),
+    h('p', {class: 'hint'}, 'Without monthly budgets the checks are different: revenue and opex variances, budget figures on totals rows, and budget totals in the summary and Ask are not checked. Totals of actual figures, the cash roll-forward, and duplicate and missing months still are.')];
   const drop = h('div', {class: 'drop'}, ...idle());
   drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
   drop.addEventListener('dragleave', () => drop.classList.remove('over'));
