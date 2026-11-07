@@ -221,3 +221,20 @@ test('loadSource label is used as the flag source file',()=>{
   const flags=checkSheet(sheet({cells:{'FIN-1-03':{revenue_variance_usd:'3500.00'}}}),s);
   assert.equal(flags[0].source.file,'Company data (true copy)');
 });
+
+test('large synthetic sheet: 2,400 rows, every planted error found exactly once, clean sheet passes',()=>{
+  const d=n=>parseCSV(fs.readFileSync(new URL(`../data/synthetic/large/${n}`,import.meta.url),'utf8'));
+  const big=loadSource(d('company-data.csv'));
+  assert.equal(big.rows.length,2400);
+  assert.equal(checkSheet(d('analyst-sheet-clean.csv'),big).length,0);
+  assert.equal(checkSheet(d('analyst-sheet-clean.csv'),null).length,0);
+  const key=JSON.parse(fs.readFileSync(new URL('../data/synthetic/large/planted-errors.json',import.meta.url),'utf8')).errors;
+  const got=checkSheet(d('analyst-sheet-errors.csv'),big).map(f=>`${f.sheet_row}|${f.column}|${f.type}`).sort();
+  assert.deepEqual(got,key.map(k=>`${k.sheet_row}|${k.column}|${k.type}`).sort());
+});
+
+test('first month opening cash is compared to the source even when data does not start in 2026-01',()=>{
+  const rows=src.rows.map(r=>({...r,period:r.period.replace('2026','2025')})),s=loadSource(rows);
+  const flags=checkSheet(buildSheetRows(rows,{cells:{'FIN-1-01':{opening_cash_usd:'500100.00',closing_cash_usd:'478987.50'}}}),s);
+  assert.ok(flags.some(f=>f.record_id==='FIN-1-01'&&f.column==='opening_cash_usd'),JSON.stringify(flags.map(f=>f.type)));
+});

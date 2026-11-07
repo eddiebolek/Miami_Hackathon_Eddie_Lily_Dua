@@ -30,11 +30,11 @@ function fakeDb(tables,{rpc={},user={id:'u1',email:'a@x.test'}}={}){
     auth:{getUser:async()=>({data:{user}})},
     rpc:async(name,args)=>rpc[name]?rpc[name](args):{data:null,error:{message:'no rpc'}},
     from(name){
-      const t=tables[name]??=[];let op='select',val,f=[],ord,lim,one=false;
+      const t=tables[name]??=[];let op='select',val,f=[],ord,lim,rng,one=false;
       const b={
         select(){return b;},insert(v){op='insert';val=v;return b;},upsert(v){op='insert';val=v;return b;},update(v){op='update';val=v;return b;},
         eq(c,v){f.push(r=>r[c]===v);return b;},neq(c,v){f.push(r=>r[c]!==v);return b;},in(c,v){f.push(r=>v.includes(r[c]));return b;},
-        order(c,{ascending=true}={}){ord=[c,ascending];return b;},limit(k){lim=k;return b;},
+        order(c,{ascending=true}={}){ord=[c,ascending];return b;},limit(k){lim=k;return b;},range(a,z){rng=[a,z];return b;},
         maybeSingle(){one=true;return b;},single(){one=true;return b;},
         then(ok,no){return Promise.resolve().then(()=>{
           let hit=t.filter(r=>f.every(g=>g(r)));
@@ -42,6 +42,7 @@ function fakeDb(tables,{rpc={},user={id:'u1',email:'a@x.test'}}={}){
           if(op==='update')hit.forEach(r=>Object.assign(r,val));
           if(ord)hit=[...hit].sort((x,y)=>(x[ord[0]]>y[ord[0]]?1:-1)*(ord[1]?1:-1));
           if(lim)hit=hit.slice(0,lim);
+          if(op==='select')hit=hit.slice(rng?.[0]??0,(rng?.[0]??0)+Math.min(1000,rng?rng[1]-rng[0]+1:1000)); // like Supabase: at most 1,000 rows per request
           return {data:one?hit[0]??null:hit,error:null};
         }).then(ok,no);}
       };
@@ -256,4 +257,12 @@ test('map-columns: AI sees header names only and its answer is validated',async(
     assert.equal(r.status,200);assert.equal(r.body.data.mapping.Mystery,'capex_usd');assert.equal(r.body.data.mapping.Other,null);assert.equal(r.body.data.mapping.Third,null);
     assert.deepEqual(r.body.data.ai,['Mystery']);assert.ok(!JSON.stringify(sent).includes('123456'));
   }finally{ai.client=null;}
+});
+
+test('true copy reads past the 1,000-row Supabase page limit',async()=>{
+  const {trueCopy}=await import('../api/_lib.js');
+  const rhb_records=Array.from({length:2500},(_,i)=>({dataset_id:'d1',record_key:`R-${i}`,source_row:i+2,payload:{record_id:`R-${i}`}}));
+  const {records}=await trueCopy(fakeDb({rhb_datasets:[{id:'d1',team_id:'t1',source:'company data'}],rhb_records}),'t1');
+  assert.equal(records.length,2500);
+  assert.equal(records.at(-1).record_key,'R-2499');
 });

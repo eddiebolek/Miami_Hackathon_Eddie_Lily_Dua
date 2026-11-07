@@ -51,9 +51,20 @@ export async function requireMember(db,team_id){
   if(!checked(await db.from('rhb_teams').select('id').eq('id',team_id).maybeSingle()))fail(403,'forbidden','You are not a member of that team.');
 }
 
+// Supabase sends at most 1,000 rows per request, so saved rows are read in pages.
+const PAGE=1000;
+export async function readRecords(db,select,where){
+  const out=[];
+  for(let from=0;;from+=PAGE){
+    let q=db.from('rhb_records').select(select);for(const [c,v] of Object.entries(where))q=q.eq(c,v);
+    const page=checked(await q.order('source_row').range(from,from+PAGE-1));out.push(...page);
+    if(page.length<PAGE)return out;
+  }
+}
+
 // The company's true copy: its append-only 'company data' dataset and rows in the order they were added.
 export async function trueCopy(db,team_id){
   const dataset=checked(await db.from('rhb_datasets').select('id').eq('team_id',team_id).eq('source','company data').maybeSingle());
-  const records=dataset?checked(await db.from('rhb_records').select('record_key,source_row,payload').eq('dataset_id',dataset.id).order('source_row')):[];
+  const records=dataset?await readRecords(db,'record_key,source_row,payload',{dataset_id:dataset.id}):[];
   return {dataset,records};
 }

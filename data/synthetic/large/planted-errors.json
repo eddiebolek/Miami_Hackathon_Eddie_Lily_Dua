@@ -1,0 +1,131 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC answer key for large/analyst-sheet-errors.csv. sheet_row is the CSV line number (header = 1). A missing_row has column null and points at the row just before the gap. Used only by tests.",
+  "errors": [
+    {
+      "sheet_row": 32,
+      "column": "opening_cash_usd",
+      "type": "rollforward_break"
+    },
+    {
+      "sheet_row": 80,
+      "column": "opex_variance_usd",
+      "type": "sign_flipped"
+    },
+    {
+      "sheet_row": 160,
+      "column": null,
+      "type": "missing_row"
+    },
+    {
+      "sheet_row": 284,
+      "column": "revenue_usd",
+      "type": "typed_over"
+    },
+    {
+      "sheet_row": 375,
+      "column": "revenue_usd",
+      "type": "total_double_counts"
+    },
+    {
+      "sheet_row": 452,
+      "column": "revenue_usd",
+      "type": "wrong_period"
+    },
+    {
+      "sheet_row": 553,
+      "column": "revenue_variance_usd",
+      "type": "wrong_variance"
+    },
+    {
+      "sheet_row": 649,
+      "column": "closing_cash_usd",
+      "type": "rollforward_formula"
+    },
+    {
+      "sheet_row": 705,
+      "column": "opex_variance_pct",
+      "type": "wrong_percent"
+    },
+    {
+      "sheet_row": 825,
+      "column": "revenue_usd",
+      "type": "total_skips_row"
+    },
+    {
+      "sheet_row": 929,
+      "column": "opex_variance_usd",
+      "type": "sign_flipped"
+    },
+    {
+      "sheet_row": 1006,
+      "column": "opening_cash_usd",
+      "type": "rollforward_break"
+    },
+    {
+      "sheet_row": 1184,
+      "column": null,
+      "type": "missing_row"
+    },
+    {
+      "sheet_row": 1358,
+      "column": "revenue_usd",
+      "type": "typed_over"
+    },
+    {
+      "sheet_row": 1449,
+      "column": "revenue_usd",
+      "type": "total_double_counts"
+    },
+    {
+      "sheet_row": 1502,
+      "column": "revenue_variance_usd",
+      "type": "wrong_variance"
+    },
+    {
+      "sheet_row": 1598,
+      "column": "closing_cash_usd",
+      "type": "rollforward_formula"
+    },
+    {
+      "sheet_row": 1626,
+      "column": "revenue_usd",
+      "type": "wrong_period"
+    },
+    {
+      "sheet_row": 1729,
+      "column": "opex_variance_pct",
+      "type": "wrong_percent"
+    },
+    {
+      "sheet_row": 1828,
+      "column": "opex_variance_usd",
+      "type": "sign_flipped"
+    },
+    {
+      "sheet_row": 1974,
+      "column": "revenue_usd",
+      "type": "total_skips_row"
+    },
+    {
+      "sheet_row": 2058,
+      "column": "revenue_usd",
+      "type": "typed_over"
+    },
+    {
+      "sheet_row": 2155,
+      "column": "opening_cash_usd",
+      "type": "rollforward_break"
+    },
+    {
+      "sheet_row": 2258,
+      "column": null,
+      "type": "missing_row"
+    },
+    {
+      "sheet_row": 2401,
+      "column": "revenue_variance_usd",
+      "type": "wrong_variance"
+    }
+  ]
+}

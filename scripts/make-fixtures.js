@@ -32,7 +32,7 @@ export function buildSheetRows(sourceRows,{inputs={},cells={},drop=[],totalAdjus
   return out;
 }
 
-const merge=(a,b)=>{for(const [k,v] of Object.entries(b))a[k]=(v&&typeof v==='object'&&!Array.isArray(v)&&typeof v!=='bigint')?merge(a[k]??{},v):v;return a;};
+const merge=(a,b)=>{for(const [k,v] of Object.entries(b))a[k]=Array.isArray(v)?[...(a[k]??[]),...v]:(v&&typeof v==='object'&&typeof v!=='bigint')?merge(a[k]??{},v):v;return a;};
 
 // Ten planted errors; each yields exactly one flag. Row-level plants first so totals follow the kept rows.
 export function plants(S){
@@ -51,8 +51,8 @@ export function plants(S){
   ];
 }
 
-export function planFixtures(sourceRows){
-  const list=plants(sourceRows),opts={};for(const p of list)merge(opts,p.opts);
+export function planFixtures(sourceRows,list=plants(sourceRows)){
+  const opts={};for(const p of list)merge(opts,p.opts);
   const errors=buildSheetRows(sourceRows,opts);
   const line=id=>errors.findIndex(r=>r.record_id===id)+2;
   const key=list.map(p=>{

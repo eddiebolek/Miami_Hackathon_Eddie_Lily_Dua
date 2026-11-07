@@ -24,7 +24,7 @@ function fakeDb(tables,{take=true}={}){
     rpc:async(name,args)=>{taken.push([name,args]);return {data:take,error:null};},
     from(name){
       const t=tables[name]??=[];let op='select',val,f=[],one=false;
-      const b={select(){return b;},update(v){op='update';val=v;return b;},eq(c,v){eqs.push([name,c,v]);f.push(r=>r[c]===v);return b;},order(){return b;},limit(){return b;},maybeSingle(){one=true;return b;},
+      const b={select(){return b;},update(v){op='update';val=v;return b;},eq(c,v){eqs.push([name,c,v]);f.push(r=>r[c]===v);return b;},order(){return b;},limit(){return b;},range(){return b;},maybeSingle(){one=true;return b;},
         then(ok,no){return Promise.resolve().then(()=>{const hit=t.filter(r=>f.every(g=>g(r)));if(op==='update')hit.forEach(r=>Object.assign(r,val));return {data:one?hit[0]??null:hit,error:null};}).then(ok,no);}};
       return b;
     }};

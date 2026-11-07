@@ -1,4 +1,4 @@
-import {route,auth,readBody,fail,send,checked,UUID} from './_lib.js';
+import {route,auth,readBody,fail,send,checked,readRecords,UUID} from './_lib.js';
 import {aiEnabled,buildReportInput,writeReport,AiError,LIMITS,secondsToMidnightET} from '../lib/ai.js';
 import {summarize} from '../lib/summary.js';
 
@@ -13,7 +13,7 @@ export default route(['POST'],async(req,res)=>{
   const team=checked(await db.from('rhb_teams').select('name').eq('id',dataset.team_id).maybeSingle());
   const found=checked(await db.from('rhb_findings').select('review_status,flag').eq('dataset_id',dataset_id).eq('method','deterministic').order('created_at'));
   const flags=found.map(r=>({...r.flag,review_status:r.review_status}));
-  const sheet=checked(await db.from('rhb_records').select('payload').eq('dataset_id',dataset_id).order('source_row')).map(r=>r.payload);
+  const sheet=(await readRecords(db,'payload',{dataset_id})).map(r=>r.payload);
   const input=buildReportInput({company:team?.name??'This company',mode:flags.some(f=>f.source?.file)?'source':'internal',summary:summarize(sheet,flags.map(f=>({...f,status:f.review_status}))),flags});
 
   if(!checked(await db.rpc('rhb_ai_take',{kind:'report',daily_max:LIMITS.report}))){

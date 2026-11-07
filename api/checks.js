@@ -3,7 +3,7 @@ import {applyMapping} from '../lib/mapping.js';
 import {checkSheet,loadSource} from '../lib/checker.js';
 import {summarize} from '../lib/summary.js';
 import {importRows} from '../lib/supabase.js';
-import {route,auth,readBody,fail,send,flagRow,checked,requireMember,trueCopy,UUID} from './_lib.js';
+import {route,auth,readBody,fail,send,flagRow,checked,requireMember,trueCopy,readRecords,UUID} from './_lib.js';
 
 export default route(['GET','POST'],async(req,res)=>{
   const {db}=await auth(req);
@@ -15,7 +15,7 @@ export default route(['GET','POST'],async(req,res)=>{
     const dataset=checked(await db.from('rhb_datasets').select('id,name,created_at,signoff,ai_report').eq('id',id).maybeSingle());
     if(!dataset)fail(404,'not_found','Check not found.');
     const rows=checked(await db.from('rhb_findings').select('id,review_status,note,flag').eq('dataset_id',id).order('created_at'));
-    const sheet=checked(await db.from('rhb_records').select('payload').eq('dataset_id',id).order('source_row')).map(r=>r.payload);
+    const sheet=(await readRecords(db,'payload',{dataset_id:id})).map(r=>r.payload);
     return send(res,200,{data:{dataset,flags:rows.map(flagRow),summary:summarize(sheet,rows.map(r=>({...r.flag,status:r.review_status})))}});
   }
   const team=q.get('team_id');

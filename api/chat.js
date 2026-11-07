@@ -1,4 +1,4 @@
-import {route,auth,readBody,fail,send,checked,requireMember,UUID} from './_lib.js';
+import {route,auth,readBody,fail,send,checked,requireMember,readRecords,UUID} from './_lib.js';
 import {aiEnabled,chat,AiError,LIMITS,secondsToMidnightET} from '../lib/ai.js';
 
 export default route(['POST'],async(req,res)=>{
@@ -25,7 +25,7 @@ export default route(['POST'],async(req,res)=>{
   const all=checked(await db.from('rhb_datasets').select('id,name,source,created_at').eq('team_id',team_id).order('created_at',{ascending:false}))
     .filter(d=>KIND[d.source]).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at))).map(d=>({id:d.id,name:d.name,kind:KIND[d.source],created_at:d.created_at}));
   if(dataset_id&&!all.some(d=>d.id===dataset_id))fail(404,'not_found','Dataset not found.');
-  const load=async d=>({...d,rows:checked(await db.from('rhb_records').select('source_row,payload').eq('team_id',team_id).eq('dataset_id',d.id).order('source_row')).map(r=>({...r.payload,source_row:r.source_row}))});
+  const load=async d=>({...d,rows:(await readRecords(db,'source_row,payload',{team_id,dataset_id:d.id})).map(r=>({...r.payload,source_row:r.source_row}))});
   const copy=all.find(d=>d.kind==='true copy'),uploads=all.filter(d=>d.kind==='analyst upload');
   // Load the true copy, the chosen upload and the 4 newest uploads; the model picks among them with list_datasets.
   const want=[...new Set([dataset_id,copy?.id,...uploads.slice(0,4).map(d=>d.id)].filter(Boolean))];
