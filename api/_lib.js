@@ -6,8 +6,8 @@ export const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[
 export class ApiError extends Error{constructor(status,code,message,details){super(message);this.status=status;this.code=code;this.details=details;}}
 export const fail=(status,code,message,details)=>{throw new ApiError(status,code,message,details);};
 
-// Like lib/supabase.js checked(), but maps Postgres codes to HTTP errors: 42501 -> 403, P0002 -> 404, 23505 -> 409.
-const PG={'42501':[403,'forbidden'],P0002:[404,'not_found'],'23505':[409,'conflict']};
+// Like lib/supabase.js checked(), but maps Postgres codes to HTTP errors: 42501 -> 403, P0002 -> 404, P0001/23505 -> 409.
+const PG={'42501':[403,'forbidden'],P0002:[404,'not_found'],P0001:[409,'conflict'],'22023':[422,'invalid_request'],'23505':[409,'conflict']};
 export function checked({data,error}){
   if(error){const m=PG[error.code];if(m)fail(m[0],m[1],error.message);throw Error(error.message);}
   return data;

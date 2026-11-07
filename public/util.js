@@ -1,7 +1,7 @@
 // Shared helpers for every view. All text goes into the page through textContent / text nodes, never innerHTML.
 export const $ = id => document.getElementById(id);
 export const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-export const ctx = {sb: null, team: null, teams: [], isOwner: false, aiEnabled: true, uploads: null, modes: {}, chats: {}, onAuthLost: () => {}};
+export const ctx = {sb: null, team: null, teams: [], isOwner: false, isDev: false, role: null, reloadTeams: async () => {}, aiEnabled: true, uploads: null, modes: {}, chats: {}, onAuthLost: () => {}};
 
 export function h(tag, props = {}, ...kids) {
   const e = document.createElement(tag);

@@ -5,6 +5,7 @@ import checks from '../api/checks.js';
 import findings from '../api/findings.js';
 import companyData from '../api/company-data.js';
 import members from '../api/members.js';
+import companies from '../api/companies.js';
 import {deps} from '../api/_lib.js';
 import {parseCSV} from '../lib/csv.js';
 import fs from 'node:fs';
@@ -100,7 +101,7 @@ test('checks: a non-member gets 403',async()=>{
   assert.equal(r.status,403);
 });
 test('new routes: no token gives 401',async()=>{
-  for(const [h,method] of [[companyData,'GET'],[companyData,'POST'],[members,'GET'],[members,'POST'],[findings,'GET'],[findings,'POST']])
+  for(const [h,method] of [[companyData,'GET'],[companyData,'POST'],[members,'GET'],[members,'POST'],[members,'PATCH'],[members,'DELETE'],[companies,'GET'],[companies,'POST'],[findings,'GET'],[findings,'POST']])
     assert.equal((await call(h,{method,body:{}})).status,401);
 });
 test('company-data: bad body gives 422',async()=>{
@@ -164,6 +165,42 @@ test('members: bad body 422, non-owner 403, unknown email 404, owner adds 201, l
   assert.equal(ok.status,201);assert.equal(ok.body.data.user_id,'uid-9');
   const l=await call(members,{url:`/api/members?team_id=${ID}`,headers:authed});
   assert.equal(l.status,200);assert.equal(l.body.data[0].is_owner,true);
+});
+test('members: role on add, PATCH sets role, DELETE removes; 409 for last admin, 403 for analyst',async()=>{
+  const seen=[];
+  DB=fakeDb({},{rpc:{
+    rhb_add_member:async a=>{seen.push(a);return {data:'uid-9',error:null};},
+    rhb_set_role:async a=>a.new_role==='analyst'?{data:null,error:{code:'P0001',message:'A company needs at least one admin'}}:{data:null,error:null},
+    rhb_remove_member:async a=>a.member_id==='123e4567-e89b-42d3-a456-426614174001'?{data:null,error:{code:'42501',message:'Only a company admin can remove members'}}:{data:null,error:null}
+  }});
+  const U='123e4567-e89b-42d3-a456-426614174001',V='123e4567-e89b-42d3-a456-426614174002';
+  assert.equal((await call(members,{method:'POST',headers:authed,body:{team_id:ID,email:'b@x.test',role:'admin'}})).status,201);
+  assert.equal(seen[0].member_role,'admin');
+  assert.equal((await call(members,{method:'POST',headers:authed,body:{team_id:ID,email:'b@x.test',role:'boss'}})).status,422);
+  assert.equal((await call(members,{method:'PATCH',headers:authed,body:{team_id:ID,user_id:'x',role:'admin'}})).status,422);
+  assert.equal((await call(members,{method:'PATCH',headers:authed,body:{team_id:ID,user_id:V,role:'admin'}})).body.data.role,'admin');
+  const last=await call(members,{method:'PATCH',headers:authed,body:{team_id:ID,user_id:V,role:'analyst'}});
+  assert.equal(last.status,409);assert.match(last.body.error.message,/at least one admin/);
+  assert.equal((await call(members,{method:'DELETE',url:`/api/members?team_id=${ID}&user_id=${V}`,headers:authed})).status,200);
+  assert.equal((await call(members,{method:'DELETE',url:`/api/members?team_id=${ID}&user_id=${U}`,headers:authed})).status,403);
+  assert.equal((await call(members,{method:'DELETE',url:`/api/members?team_id=${ID}`,headers:authed})).status,422);
+});
+test('companies: GET lists roles, POST is developer-only and validated',async()=>{
+  const tables={rhb_teams:[{id:'t1',name:'Alpha',owner_id:'u1'},{id:'t2',name:'Beta',owner_id:'u2'},{id:'t3',name:'Gamma',owner_id:'u2'}],rhb_members:[{team_id:'t2',user_id:'u1',role:'admin'},{team_id:'t3',user_id:'u1',role:'analyst'}]};
+  DB=fakeDb(tables,{rpc:{rhb_is_dev:async()=>({data:false,error:null})}});
+  const g=await call(companies,{headers:authed});
+  assert.equal(g.body.is_dev,false);assert.deepEqual(g.body.companies.map(c=>c.my_role),['admin','admin','analyst']);
+  DB=fakeDb(tables,{rpc:{rhb_is_dev:async()=>({data:true,error:null}),
+    rhb_create_company:async({admin_email})=>admin_email==='nobody@x.test'?{data:null,error:{code:'P0002',message:'No login with that email.'}}:{data:'new-id',error:null}}});
+  const d=await call(companies,{headers:authed});
+  assert.equal(d.body.is_dev,true);assert.ok(d.body.companies.every(c=>c.my_role==='developer'));
+  assert.equal((await call(companies,{method:'POST',headers:authed,body:{name:' ',admin_email:'a@x.test'}})).status,422);
+  assert.equal((await call(companies,{method:'POST',headers:authed,body:{name:'Acme',admin_email:'nope'}})).status,422);
+  assert.equal((await call(companies,{method:'POST',headers:authed,body:{name:'Acme',admin_email:'nobody@x.test'}})).status,404);
+  const ok=await call(companies,{method:'POST',headers:authed,body:{name:' Acme ',admin_email:'a@x.test'}});
+  assert.equal(ok.status,201);assert.equal(ok.body.data.id,'new-id');
+  DB=fakeDb({},{rpc:{rhb_create_company:async()=>({data:null,error:{code:'42501',message:'Only a developer can create a company'}})}});
+  assert.equal((await call(companies,{method:'POST',headers:authed,body:{name:'Acme',admin_email:'a@x.test'}})).status,403);
 });
 test('findings: suggested edit is created and listed, never changes the data',async()=>{
   DB=withCopy();

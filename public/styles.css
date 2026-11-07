@@ -270,3 +270,9 @@ dialog[open] { animation: rise var(--dur-3) var(--ease); }
 
 /* the real file input is visually hidden; show its focus on the button label */
 #file:focus-visible ~ .drop .btn { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* roles */
+.role-select { width: auto; min-width: 112px; }
+#role-badge:empty { display: none; }
+dialog .actions { justify-content: flex-end; }
+td .btn { min-height: 40px; }

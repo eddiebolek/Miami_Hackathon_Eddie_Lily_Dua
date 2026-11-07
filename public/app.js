@@ -6,6 +6,7 @@ import * as flags from './views/flags.js';
 import * as ask from './views/ask.js';
 import * as sheet from './views/sheet.js';
 import * as admin from './views/admin.js';
+import {newCompanyForm} from './views/admin.js';
 import * as report from './views/report.js';
 
 const TABS = [['analysis', 'Analysis'], ['add', 'Add data'], ['flags', 'Flags'], ['ask', 'Ask'], ['sheet', 'Spreadsheet'], ['admin', 'Admin']];
@@ -39,34 +40,37 @@ function showSignin(note) {
   email.focus();
 }
 ctx.onAuthLost = showSignin;
+ctx.reloadTeams = id => afterSignIn(id);
 // the skip link would change the hash and trigger the router, so focus main directly
 document.querySelector('.skip').addEventListener('click', e => { e.preventDefault(); $('main').focus(); });
 
 function showFatal(msg) {
   $('topbar').hidden = false; $('tabbar').hidden = true;
-  setView('Error', h('div', {class: 'col-md stack'}, h('h1', {}, 'Something went wrong'), h('p', {}, msg), h('button', {type: 'button', class: 'btn', onclick: afterSignIn}, 'Try again')));
+  setView('Error', h('div', {class: 'col-md stack'}, h('h1', {}, 'Something went wrong'), h('p', {}, msg), h('button', {type: 'button', class: 'btn', onclick: () => afterSignIn()}, 'Try again')));
 }
 
-async function afterSignIn() {
+async function afterSignIn(pickId) {
   setView('Loading', h('p', {class: 'muted', role: 'status'}, 'Loading your companies...'));
-  const {data, error} = await ctx.sb.from('rhb_teams').select('id,name').order('name');
-  if (error) return showFatal('Could not load your companies.');
+  let data;
+  try { const r = await api('/api/companies'); data = r.companies; ctx.isDev = r.is_dev; } catch (e) { if (e.status === 401) return; return showFatal('Could not load your companies.'); }
   $('topbar').hidden = false;
+  if (!data?.length && ctx.isDev) { $('tabbar').hidden = true; $('team-pick').replaceChildren(); ctx.team = null; return setView('New company', h('div', {class: 'col-md stack'}, h('h1', {}, 'Create the first company'), newCompanyForm(id => afterSignIn(id)))); }
   if (!data?.length) { $('tabbar').hidden = true; $('team-pick').replaceChildren(); return setView('No company', h('div', {class: 'col-md stack'}, h('h1', {}, 'No company yet'), h('p', {}, 'Ask the account owner to add you to a company.'))); }
   ctx.teams = data;
   let saved = null; try { saved = localStorage.getItem(TEAM_KEY); } catch { /* storage can be blocked */ }
   const pick = $('team-pick');
   pick.replaceChildren(...data.map(t => h('option', {value: t.id}, t.name)));
   pick.hidden = data.length < 2; $('team-name').hidden = data.length > 1; $('team-name').textContent = data[0].name;
-  await selectTeam(data.find(t => t.id === saved) || data[0]);
+  await selectTeam(data.find(t => t.id === (pickId || saved)) || data[0]);
 }
 
 async function selectTeam(t) {
   ctx.team = t; ctx.uploads = null; $('team-pick').value = t.id; $('team-name').textContent = t.name;
   try { localStorage.setItem(TEAM_KEY, t.id); } catch { /* optional */ }
-  ctx.isOwner = false;
-  try { await api(`/api/members?${q({team_id: t.id})}`); ctx.isOwner = true; } catch { /* only owners can list members */ }
-  if (ctx.team !== t) return;
+  ctx.role = t.my_role; ctx.isOwner = t.my_role === 'admin' || t.my_role === 'developer';
+  let badge = $('role-badge');
+  if (!badge) { badge = h('span', {id: 'role-badge', class: 'badge neutral'}); $('team-name').after(badge); }
+  badge.textContent = {developer: 'Developer', admin: 'Admin', analyst: 'Analyst'}[t.my_role] || '';
   buildTabs();
   if (!location.hash || location.hash === '#') location.hash = '#analysis'; else route();
 }
