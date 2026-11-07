@@ -1,11 +1,17 @@
-import {authenticate,checked} from '../lib/supabase.js';
-export {checked};
+import {authenticate} from '../lib/supabase.js';
 // Tests replace deps.authenticate so no network is needed.
 export const deps={authenticate};
 export const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export class ApiError extends Error{constructor(status,code,message,details){super(message);this.status=status;this.code=code;this.details=details;}}
 export const fail=(status,code,message,details)=>{throw new ApiError(status,code,message,details);};
+
+// Like lib/supabase.js checked(), but maps Postgres codes to HTTP errors: 42501 -> 403, P0002 -> 404, 23505 -> 409.
+const PG={'42501':[403,'forbidden'],P0002:[404,'not_found'],'23505':[409,'conflict']};
+export function checked({data,error}){
+  if(error){const m=PG[error.code];if(m)fail(m[0],m[1],error.message);throw Error(error.message);}
+  return data;
+}
 
 export function send(res,status,body){res.status(status).json(body);}
 
@@ -39,3 +45,15 @@ export const route=(methods,fn)=>async function handler(req,res){
 };
 
 export const flagRow=r=>({id:r.id,review_status:r.review_status,decision:r.review_status==='confirmed'?'corrected':r.review_status==='dismissed'?'no_change_needed':null,note:r.note,...r.flag});
+
+// RLS shows a non-member no team row, so absence means "not yours".
+export async function requireMember(db,team_id){
+  if(!checked(await db.from('rhb_teams').select('id').eq('id',team_id).maybeSingle()))fail(403,'forbidden','You are not a member of that team.');
+}
+
+// The company's true copy: its append-only 'company data' dataset and rows in the order they were added.
+export async function trueCopy(db,team_id){
+  const dataset=checked(await db.from('rhb_datasets').select('id').eq('team_id',team_id).eq('source','company data').maybeSingle());
+  const records=dataset?checked(await db.from('rhb_records').select('record_key,source_row,payload').eq('dataset_id',dataset.id).order('source_row')):[];
+  return {dataset,records};
+}

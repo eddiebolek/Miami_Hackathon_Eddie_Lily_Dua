@@ -1,7 +1,8 @@
 import {parseCSV} from '../lib/csv.js';
-import {checkSheet} from '../lib/checker.js';
-import {importRows,checked} from '../lib/supabase.js';
-import {route,auth,readBody,fail,send,flagRow,UUID} from './_lib.js';
+import {checkSheet,loadSource} from '../lib/checker.js';
+import {summarize} from '../lib/summary.js';
+import {importRows} from '../lib/supabase.js';
+import {route,auth,readBody,fail,send,flagRow,checked,requireMember,trueCopy,UUID} from './_lib.js';
 
 export default route(['GET','POST'],async(req,res)=>{
   const {db}=await auth(req);
@@ -10,10 +11,11 @@ export default route(['GET','POST'],async(req,res)=>{
   if(q.get('dataset_id')){
     const id=q.get('dataset_id');
     if(!UUID.test(id))fail(422,'invalid_request','dataset_id must be a uuid.');
-    const dataset=checked(await db.from('rhb_datasets').select('id,name,created_at,signoff').eq('id',id).maybeSingle());
+    const dataset=checked(await db.from('rhb_datasets').select('id,name,created_at,signoff,ai_report').eq('id',id).maybeSingle());
     if(!dataset)fail(404,'not_found','Check not found.');
     const rows=checked(await db.from('rhb_findings').select('id,review_status,note,flag').eq('dataset_id',id).order('created_at'));
-    return send(res,200,{data:{dataset,flags:rows.map(flagRow)}});
+    const sheet=checked(await db.from('rhb_records').select('payload').eq('dataset_id',id).order('source_row')).map(r=>r.payload);
+    return send(res,200,{data:{dataset,flags:rows.map(flagRow),summary:summarize(sheet,rows.map(r=>({...r.flag,status:r.review_status})))}});
   }
   const team=q.get('team_id');
   if(!UUID.test(team||''))fail(422,'invalid_request','team_id (uuid) or dataset_id is required.');
@@ -31,9 +33,11 @@ async function create(db,req,res){
   if(bad.length)fail(422,'invalid_request',bad.join(' '),bad.map(message=>({message})));
   let rows;
   try{rows=parseCSV(csv);}catch(e){fail(422,'invalid_sheet',`Could not read the file as CSV: ${e.message}`,[{row:null,column:null,message:e.message}]);}
-  const flags=checkSheet(rows); // throws ValidationError -> 422 with details
-  // RLS: a non-member sees no team row.
-  if(!checked(await db.from('rhb_teams').select('id').eq('id',team_id).maybeSingle()))fail(403,'forbidden','You are not a member of that team.');
+  await requireMember(db,team_id);
+  // With a true copy, compare against it; without one, run the checks that need only the file itself.
+  const copy=(await trueCopy(db,team_id)).records;
+  const mode=copy.length?'source':'internal';
+  const flags=checkSheet(rows,copy.length?loadSource(copy.map(r=>r.payload),{file:'Company data (true copy)'}):null); // throws ValidationError -> 422 with details
   const name=`${filename.trim()} ${new Date().toISOString()}`;
   // importRows upserts on record_id, so a repeated id (a duplicate_row flag) would abort the save; give repeats a unique key.
   const seen=new Set();
@@ -41,5 +45,5 @@ async function create(db,req,res){
   checked(await db.from('rhb_datasets').update({source:'analyst upload'}).eq('id',dataset_id));
   let saved=[];
   if(flags.length)saved=checked(await db.from('rhb_findings').insert(flags.map(f=>({team_id,dataset_id,title:`${f.cell}: ${f.type.replace(/_/g,' ')}`,detail:f.explanation,rule:f.type,severity:f.severity,method:'deterministic',flag:f}))).select('id,review_status,note,flag'));
-  send(res,201,{data:{dataset_id,flag_count:flags.length,flags:saved.map(flagRow)}});
+  send(res,201,{data:{dataset_id,mode,flag_count:flags.length,flags:saved.map(flagRow),summary:summarize(rows,flags)}});
 }
