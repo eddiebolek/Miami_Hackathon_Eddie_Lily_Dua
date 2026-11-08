@@ -51,17 +51,17 @@ p { margin: 0; text-wrap: pretty; }
 .stage { position: sticky; top: 0; height: 100vh; height: 100dvh; overflow: hidden; background: #1B2747; }
 .shots, .screen, .cta-wrap { position: absolute; inset: 0; }
 .shots { overflow: hidden; background: #0B0E16; }
-/* each photo keeps its 16:9 shape and covers the viewport; JS adds the zoom transform */
+/* each photo is a 16:9 box that covers the viewport at scale 1; JS places all of them with one shared camera */
 .shot {
-  position: absolute; left: 50%; top: 50%; width: max(100vw, 177.78vh); width: max(100vw, 177.78dvh); aspect-ratio: 16 / 9;
-  transform: translate(-50%, -50%); transform-origin: 50% 50%; opacity: 0; will-change: transform, opacity;
+  position: absolute; left: 0; top: 0; width: max(100vw, 177.78vh); width: max(100vw, 177.78dvh); aspect-ratio: 16 / 9;
+  transform-origin: 0 0; will-change: transform; backface-visibility: hidden;
 }
-.shot[data-shot="1"] { opacity: 1; }
 .shot img { display: block; width: 100%; height: 100%; }
-/* image 3's monitor screen, measured on the 1536x864 photo: (578,270) to (926,468) */
-.mini { position: absolute; left: 37.63%; top: 31.25%; width: 22.66%; height: 22.92%; overflow: hidden; background: var(--bg); border-radius: 2px; }
-.mini .mock { inset: auto; left: 0; top: 0; width: 1280px; height: 728px; transform-origin: 0 0; filter: brightness(.9) saturate(.95); }
-.mini::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, rgb(255 214 170 / .14), transparent 38%, transparent 70%, rgb(255 255 255 / .06)); pointer-events: none; }
+/* covers the AI-drawn dashboard on photo 3's monitor; the Tally screen sits on top of it */
+/* sunset glare off the tower glass: blooms over the hand-off from photo 1 to photo 2 */
+.glare { position: absolute; inset: -10%; opacity: 0; pointer-events: none; mix-blend-mode: screen;
+  background: radial-gradient(60% 55% at 58% 52%, rgb(255 236 205 / .95), rgb(255 196 128 / .55) 38%, rgb(255 160 80 / 0) 75%); }
+.screen-bg { position: absolute; left: 0; top: 0; width: 100px; height: 100px; background: var(--bg); transform-origin: 0 0; will-change: transform; }
 
 .hero {
   position: absolute; left: 0; right: 0; top: calc(var(--bar-h) + clamp(32px, 7vh, 72px)); z-index: 2;
@@ -172,7 +172,7 @@ p { margin: 0; text-wrap: pretty; }
 
 /* reduced motion: no zoom or scroll; JS shows two still scenes and these crossfade */
 @media (prefers-reduced-motion: reduce) {
-  .shot, .screen, .hero, .mock, .veil { transition: opacity 300ms linear; }
+  .hero, .mock, .veil { transition: opacity 300ms linear; }
   .chev { animation: none; }
   .cta-wrap, .cta-wrap.on { transform: none; filter: none; transition: opacity 300ms linear; }
   .lp-login:active, .cta:active { transform: none; }
