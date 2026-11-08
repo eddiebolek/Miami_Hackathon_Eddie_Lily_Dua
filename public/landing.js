@@ -28,24 +28,27 @@ if (tbody) {
 }
 
 // ---- scroll scene ----
-// One continuous camera. The photos (each 1536x864) are nested: photo 2 sits inside the tower in photo 1, photo 3
-// sits inside photo 2's lit window, and the Tally screen sits on photo 3's monitor. Nothing cuts or crossfades
-// full-screen: each closer photo is already in place, small, and grows. All positions are in photo-1 pixels ("px1").
+// One continuous camera over six nested photos (each 1536x864), from the whole tower down to the office monitor.
+// The photos were prepared so that wherever two overlap they hold the same picture (each closer photo is baked,
+// shrunk, into the middle of the farther one), so swapping from one to the next mid-zoom changes nothing on screen.
 const PW = 1536, PH = 864;
-// nest(parent, child): child point `at` lands on parent point `on`; the child spans `scale` of the parent's width.
-// Each step is about 3x, so no photo is ever shown much bigger than its real pixels. Points were measured from the
-// lit window (or tower edges) in each photo.
-const L1 = {o: [0, 0], s: 1}; // whole tower
-const LS = nest(L1, {on: [764, 520], at: [759, 406], scale: .3125}); // tower shaft
-const LW = nest(LS, {on: [759, 406], at: [766, 440], scale: .33}); // glass wall
-const L2 = nest(LW, {on: [766, 440], at: [762, 430], scale: 37 / 118}); // a few floors, one lit window
-const LP = nest(L2, {on: [762, 430], at: [766, 318], scale: 118 / 480}); // the lit window up close
-const L3 = nest(LP, {on: [766, 318], at: [750, 382], scale: 480 / 1020}); // the office through the glass
-const LAYERS = [L1, LS, LW, L2, LP, L3];
-const SCR = [578, 270, 926, 468]; // photo 3's monitor screen (photo-3 pixels)
+// where each photo sits inside the one before, in the parent's pixels: [x, y, x scale, y scale]
+const REL = [
+  [527.5, 346, .30312, .30312], // tower shaft in the skyline
+  [526.3, 340.03, .318, .31595], // glass wall in the shaft
+  [510.25, 362.6, .33454, .2555], // a few floors in the wall (floor lines matched)
+  [564.24, 325.7, .26357, .347], // the lit window up close
+  [412.27, 198.72, .47297, .47297], // the office through the glass
+];
+const LAYERS = [{o: [0, 0], sx: 1, sy: 1}];
+for (const [ox, oy, sx, sy] of REL) {
+  const p = LAYERS[LAYERS.length - 1];
+  LAYERS.push({o: [p.o[0] + ox * p.sx, p.o[1] + oy * p.sy], sx: p.sx * sx, sy: p.sy * sy});
+}
+const L3 = LAYERS[LAYERS.length - 1];
+const SCR = [578, 270, 926, 468]; // the office monitor's screen (office-photo pixels)
+const toPx1 = (l, q) => [l.o[0] + q[0] * l.sx, l.o[1] + q[1] * l.sy];
 const TARGET = toPx1(L3, [(SCR[0] + SCR[2]) / 2, (SCR[1] + SCR[3]) / 2]);
-function nest(par, {on, at, scale}) { const s = par.s * scale; const p = toPx1(par, on); return {o: [p[0] - at[0] * s, p[1] - at[1] * s], s}; }
-function toPx1(l, q) { return [l.o[0] + q[0] * l.s, l.o[1] + q[1] * l.s]; }
 
 const scene = $('.zoom'), shots = [...document.querySelectorAll('.shot')], screen = $('.screen'), screenBg = $('.screen-bg');
 const body = $('.mock-body'), feed = $('.mock-feed'), veil = $('.veil'), mock = $('.screen .mock');
@@ -54,27 +57,15 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const seg = (p, a, b) => clamp((p - a) / (b - a));
 const inOut = t => t < .5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
-const lseg = (v, a, b) => clamp(Math.log(v / a) / Math.log(b / a)); // progress on a zoom (log) scale
 const total = () => Math.max(1, scene.offsetHeight - innerHeight);
 
 let W = 0, VW = 0, VH = 0, ZEND = 1;
 function measure() {
   VW = innerWidth; VH = screen.offsetHeight; W = shots[0].offsetWidth;
   // end zoom: photo 3's screen covers the viewport, so the Tally screen ends at exactly scale 1
-  const sw = (SCR[2] - SCR[0]) * L3.s * W / PW, sh = (SCR[3] - SCR[1]) * L3.s * W / PW;
+  const sw = (SCR[2] - SCR[0]) * L3.sx * W / PW, sh = (SCR[3] - SCR[1]) * L3.sy * W / PW;
   ZEND = Math.max(VW / sw, VH / sh);
 }
-
-// a feathered rectangle mask in the element's own % coordinates
-function rectMask(el, x0, x1, y0, y1, f) {
-  const m = `linear-gradient(to right, transparent ${x0}%, #000 ${x0 + f}%, #000 ${x1 - f}%, transparent ${x1}%), ` +
-            `linear-gradient(to bottom, transparent ${y0}%, #000 ${y0 + f * 1.78}%, #000 ${y1 - f * 1.78}%, transparent ${y1}%)`;
-  el.style.webkitMaskImage = el.style.maskImage = m;
-  el.style.webkitMaskComposite = 'source-in'; el.style.maskComposite = 'intersect';
-}
-// a soft round mask: solid to a%, fading out by b% (of the distance to the box corner)
-function blobMask(el, a, b) { el.style.webkitMaskImage = el.style.maskImage = `radial-gradient(ellipse farthest-corner at 50% 50%, #000 ${a}%, transparent ${b}%)`; el.style.webkitMaskComposite = el.style.maskComposite = ''; }
-function clearMask(el) { el.style.webkitMaskImage = el.style.maskImage = 'none'; }
 
 function frame() {
   queued = false;
@@ -92,29 +83,20 @@ function frame() {
   const F = [TARGET[0] - (D[0] - VW / 2) / k, TARGET[1] - (D[1] - VH / 2) / k]; // photo-1 point at screen center
   const toScreen = pt => [VW / 2 + (pt[0] - F[0]) * k, VH / 2 + (pt[1] - F[1]) * k];
 
-  // each closer photo grows out of the middle of the one before: soft and feathered at first, sharp once it fills the
-  // screen, while the photo it replaces goes out of focus. A sharp edge never meets a blurred one.
-  const grow = LAYERS.map(l => lseg(l.s * Z, .15, 1.6));
-  const feather = e => 10 + 15 * (1 - e); // soft edge width, % of the photo's width
-  // a photo is fully covered once the next photo's solid (unfeathered) middle spans the whole screen
-  const fills = i => {
-    const l = LAYERS[i], S = l.s * Z, [x, y] = toScreen(l.o), w = S * W, h = w * 9 / 16, f = feather(grow[i]) / 100 * w;
-    return x + f <= 0 && y + f <= 0 && x + w - f >= VW && y + h - f >= VH;
-  };
+  // a photo is drawn once it is big enough to add detail, and dropped once the next photo covers the screen
   LAYERS.forEach((l, i) => {
-    const el = shots[i], S = l.s * Z; // S = this photo's own zoom (1 = exactly covers the viewport box)
-    const [x, y] = toScreen(l.o);
-    el.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${S.toFixed(5)})`;
-    const last = i === LAYERS.length - 1;
-    el.style.display = (!last && fills(i + 1)) || S * W < 3 ? 'none' : '';
-    const e = i ? grow[i] : 1;
-    const blur = (1 - e) * 4 + (last ? clamp((S - 1.8) / 2) * 4 : grow[i + 1] * 6); // in screen px
-    el.style.filter = blur > .05 ? `blur(${(blur / S).toFixed(3)}px)` : 'none'; // blur is in local px, so divide by S
-    if (!i) return;
-    el.style.opacity = rm ? 1 : Math.min(1, e * 4).toFixed(3);
-    if (last && e >= 1) clearMask(el); else rectMask(el, 0, 100, 0, 100, feather(e));
+    const el = shots[i], Sx = l.sx * Z, Sy = l.sy * Z, [x, y] = toScreen(l.o);
+    el.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${Sx.toFixed(5)}, ${Sy.toFixed(5)})`;
+    const n = LAYERS[i + 1], small = Sx * W / VW;
+    let hide = i > 0 && small < .12;
+    if (n) {
+      const [nx, ny] = toScreen(n.o);
+      hide = hide || (nx <= 0 && ny <= 0 && nx + n.sx * Z * W >= VW && ny + n.sy * Z * W * 9 / 16 >= VH);
+    }
+    el.style.display = hide ? 'none' : '';
+    if (i) el.style.opacity = rm ? 1 : clamp((small - .12) / .13).toFixed(3);
   });
-  const S3 = L3.s * Z;
+  const S3 = L3.sx * Z;
 
   // the Tally screen rides on photo 3's monitor; a dark backing covers the AI-drawn screen underneath
   const a = toScreen(toPx1(L3, [SCR[0], SCR[1]])), b = toScreen(toPx1(L3, [SCR[2], SCR[3]]));
