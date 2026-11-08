@@ -74,9 +74,10 @@ function measure() {
   ZEND = Math.max(VW / sw, VH / sh);
 }
 
+let P = null; // display mode sets this from a timer instead of the scroll position
 function frame() {
   queued = false;
-  let p = clamp(-scene.getBoundingClientRect().top / total());
+  let p = P ?? clamp(-scene.getBoundingClientRect().top / total());
   const rm = reduce.matches;
   if (rm) p = p < .35 ? 0 : 1; // no camera move: show the first and last frame only
 
@@ -136,6 +137,21 @@ measure();
 frame();
 // decode every photo up front so none of them stalls the first time it appears mid-scroll
 shots.forEach(s => s.querySelector('img').decode?.().catch(() => {}));
+
+// display mode (/?display, optional &speed=0.6): plays the zoom by itself for a booth screen, forward then back, forever
+const qs = new URLSearchParams(location.search);
+if (qs.has('display')) {
+  document.documentElement.classList.add('display');
+  const RUN = 10000 / (+qs.get('speed') || .75), HOLD = 2000, t0 = performance.now();
+  const ease = t => (1 - Math.cos(Math.PI * t)) / 2; // gentle start and stop at each turnaround
+  const tick = now => {
+    const t = (now - t0) % (2 * (RUN + HOLD));
+    P = t < RUN ? ease(t / RUN) : t < RUN + HOLD ? 1 : t < 2 * RUN + HOLD ? 1 - ease((t - RUN - HOLD) / RUN) : 0;
+    frame();
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
 
 // keyboard and screen reader users can reach the button without scrolling: jump to the end when it gets focus
 ctaLink.addEventListener('focus', () => {

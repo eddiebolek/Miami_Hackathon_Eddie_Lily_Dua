@@ -183,3 +183,7 @@ p { margin: 0; text-wrap: pretty; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
 .demo-done { animation: rise 280ms cubic-bezier(0.2, 0, 0, 1) both; }
 @media (prefers-reduced-motion: reduce) { .demo-done { animation: none; } }
+
+/* display mode (/?display): the zoom plays by itself, so no scrolling, scroll hint or button */
+.display, .display body { overflow: hidden; }
+.display .cta, .display .hero-hint, .display .skip { display: none; }
