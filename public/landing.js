@@ -142,6 +142,7 @@ shots.forEach(s => s.querySelector('img').decode?.().catch(() => {}));
 const qs = new URLSearchParams(location.search);
 if (qs.has('display')) {
   document.documentElement.classList.add('display');
+  ctaLink.tabIndex = -1; ctaLink.removeAttribute('href'); // shown, but not a working link on the booth screen
   const RUN = 10000 / (+qs.get('speed') || .75), HOLD = 2000, t0 = performance.now();
   const ease = t => (1 - Math.cos(Math.PI * t)) / 2; // gentle start and stop at each turnaround
   const tick = now => {
