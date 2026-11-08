@@ -15,9 +15,9 @@ export function checked({data,error}){
 
 export function send(res,status,body){res.status(status).json(body);}
 
-export async function readBody(req){
+export async function readBody(req,max=2_000_000){
   let b=req.body;
-  if(b===undefined){const parts=[];let n=0;for await(const c of req){n+=c.length;if(n>2_000_000)fail(413,'too_large','Request body is too large.');parts.push(c);}b=Buffer.concat(parts).toString('utf8');}
+  if(b===undefined){const parts=[];let n=0;for await(const c of req){n+=c.length;if(n>max)fail(413,'too_large','Request body is too large.');parts.push(c);}b=Buffer.concat(parts).toString('utf8');}
   if(typeof b==='string'){if(!b.trim())return {};try{b=JSON.parse(b);}catch{fail(422,'invalid_json','Request body must be valid JSON.');}}
   if(!b||typeof b!=='object'||Array.isArray(b))fail(422,'invalid_json','Request body must be a JSON object.');
   return b;

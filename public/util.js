@@ -1,8 +1,9 @@
 // Shared helpers for every view. All text goes into the page through textContent / text nodes, never innerHTML.
 import {isExcel, excelToCsv} from './excel.js';
+import {demoApi} from './demo.js';
 export const $ = id => document.getElementById(id);
 export const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-export const ctx = {sb: null, team: null, teams: [], isOwner: false, isDev: false, role: null, reloadTeams: async () => {}, aiEnabled: true, uploads: null, modes: {}, chats: {}, onAuthLost: () => {}};
+export const ctx = {sb: null, team: null, teams: [], isOwner: false, isDev: false, demo: false, role: null, reloadTeams: async () => {}, aiEnabled: true, uploads: null, modes: {}, chats: {}, onAuthLost: () => {}};
 
 export function h(tag, props = {}, ...kids) {
   const e = document.createElement(tag);
@@ -79,8 +80,9 @@ export const aiLabel = () => h('p', {class: 'ai-label'}, h('span', {class: 'badg
 export class ApiErr extends Error { constructor(status, err) { super(err?.message || 'Request failed'); this.status = status; this.code = err?.code; this.details = err?.details; } }
 export const netMsg = 'Could not reach the checker. Your file was not changed.';
 export const errMsg = e => e.status ? e.message : netMsg;
-export const aiMsg = e => e.status === 503 ? "AI isn't set up yet; everything else works." : e.status === 429 ? 'Daily AI limit reached. Try again tomorrow.' : e.status === 502 ? `The AI could not answer this time. ${e.message}` : errMsg(e);
+export const aiMsg = e => e.code === 'demo_ai_off' ? e.message : e.status === 503 ? "AI isn't set up yet; everything else works." : e.status === 429 ? 'Daily AI limit reached. Try again tomorrow.' : e.status === 502 ? `The AI could not answer this time. ${e.message}` : errMsg(e);
 export async function api(path, {method = 'GET', body} = {}) {
+  if (ctx.demo) return demoApi(path, {method, body}); // demo login: answered from this tab's memory, see demo.js
   const {data: {session}} = await ctx.sb.auth.getSession();
   const res = await fetch(path, {method, headers: {...(session ? {Authorization: `Bearer ${session.access_token}`} : {}), ...(body ? {'Content-Type': 'application/json'} : {})}, body: body ? JSON.stringify(body) : undefined});
   const json = await res.json().catch(() => ({}));

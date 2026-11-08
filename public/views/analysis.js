@@ -1,4 +1,4 @@
-import {h, ctx, api, q, setView, banner, announce, reduce, money, plural, when, cleanName, errMsg, aiMsg, modeBadge, inferMode, aiLabel, loadUploads, detailLines, readFile, isExcel, requirementsBox, problemsBox, dropZone, matchColumns, templateLink, ApiErr} from '../util.js';
+import {h, ctx, api, q, setView, banner, announce, reduce, money, plural, when, cleanName, errMsg, netMsg, aiMsg, modeBadge, inferMode, aiLabel, loadUploads, detailLines, readFile, isExcel, requirementsBox, problemsBox, dropZone, matchColumns, templateLink, ApiErr} from '../util.js';
 
 const MODE_TEXT = {
   source: 'This upload was compared with the company\'s saved true copy, so changed, mistyped and wrong-month numbers are caught as well as math errors.',
@@ -35,12 +35,26 @@ export async function render(openId, sig) {
       if (e.status === 422) { const d = detailLines(e); problems(d.length ? d : [e.message]); } else problems([errMsg(e)], true);
     }
   }
+  // demo login, US Postal Service company: one click uploads the real USPS FY2006 file through the normal upload path
+  const USPS = '/demo/usps_monthly_financials.csv';
+  const uspsBtn = h('button', {type: 'button', class: 'btn primary', onclick: async () => {
+    uspsBtn.disabled = true;
+    try {
+      const res = await fetch(USPS);
+      if (!res.ok) throw Error(res.statusText);
+      await run(new File([await res.blob()], 'usps_monthly_financials.csv', {type: 'text/csv'}));
+    } catch { problems([netMsg]); } finally { uspsBtn.disabled = false; }
+  }}, 'Upload the USPS file');
+  const sample = ctx.demo && ctx.team.sample === 'usps' ? h('div', {class: 'card stack demo-sample'},
+    h('h2', {}, 'Try it with real data'),
+    h('p', {}, 'US Postal Service monthly results for fiscal 2006 (October 2005 to September 2006), actual against plan, built from the Postal Service\'s public Financial & Operating Statements. Upload it and see what the checker finds.'),
+    h('div', {class: 'actions'}, uspsBtn, h('a', {class: 'btn', href: USPS, download: 'usps_monthly_financials.csv'}, 'Download the file'))) : null;
   function problems(list, retry) { status.replaceChildren(problemsBox(list, {retry: retry && (() => send(lastFile, lastCsv, lastMap)), title: retry ? 'Could not check the file' : undefined})); }
 
   setView('Analysis', h('div', {class: 'stack-lg'},
     h('div', {class: 'stack'}, h('h1', {}, 'Analysis'),
       h('p', {class: 'muted'}, 'Upload the full company data file. The checker recomputes every variance, total and cash roll-forward in code, then you can ask the AI to write up what to look at first.')),
-    h('div', {class: 'col-md stack'}, dz.input, dz.drop, h('div', {class: 'actions'}, templateLink()), reqs, status), result, recentBox));
+    h('div', {class: 'col-md stack'}, sample, dz.input, dz.drop, h('div', {class: 'actions'}, templateLink()), reqs, status), result, recentBox));
 
   loadUploads(true).then(list => {
     if (sig.stale()) return;
@@ -93,7 +107,7 @@ function paintResult(root, id, {dataset, flags, summary}) {
 }
 
 function paintAi(box, id, report, flags) {
-  const off = ctx.aiEnabled === false;
+  const off = ctx.aiEnabled === false || ctx.demo;
   const live = h('p', {class: 'hint', role: 'status'});
   const btn = h('button', {type: 'button', class: 'btn', disabled: off, onclick: async () => {
     btn.disabled = true; live.textContent = 'Writing the report. This can take up to a minute...'; live.classList.remove('err-text');
@@ -115,6 +129,6 @@ function paintAi(box, id, report, flags) {
       Array.isArray(report.caveats) && report.caveats.length ? h('div', {}, h('p', {class: 'sec-label'}, 'Caveats'), h('ul', {}, report.caveats.map(c => h('li', {}, String(c))))) : null,
       removed ? h('p', {class: 'hint'}, `${plural(removed, 'statement')} hidden because they contained numbers the checker did not produce.`) : null,
       h('p', {class: 'caption'}, [report.model ? `Model: ${report.model}` : null, report.at ? `written ${when(report.at)}` : null].filter(Boolean).join(' · ')));
-  } else body.push(h('p', {class: 'hint'}, off ? 'AI is off for this deployment. Everything else works.' : 'The AI reads only the checker\'s results and writes what an analyst should look at first. It never does the math.'));
+  } else body.push(h('p', {class: 'hint'}, off ? (ctx.demo ? 'AI is turned off for the demo login. Everything else works.' : 'AI is off for this deployment. Everything else works.') : 'The AI reads only the checker\'s results and writes what an analyst should look at first. It never does the math.'));
   box.replaceChildren(h('h3', {}, 'AI report'), aiLabel(), ...body, h('div', {class: 'actions'}, btn, live));
 }

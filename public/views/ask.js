@@ -55,7 +55,8 @@ export function render(_arg, sig) {
     h('div', {class: 'actions'}, send, count));
 
   setView('Ask', h('div', {class: 'col-lg stack-lg'},
-    h('div', {class: 'stack'}, h('h1', {}, 'Ask'), h('p', {class: 'muted'}, 'Ask a question about this company\'s data in plain English.'), aiLabel()),
+    h('div', {class: 'stack'}, h('h1', {}, 'Ask'), h('p', {class: 'muted'}, 'Ask a question about this company\'s data in plain English.'), aiLabel(),
+      ctx.demo ? h('p', {class: 'demo-note'}, 'AI is turned off for the demo login, so questions are not answered here. Everything else works.') : null),
     log, form));
   paint();
 }

@@ -9,6 +9,7 @@ import * as admin from './views/admin.js';
 import {newCompanyForm} from './views/admin.js';
 import * as report from './views/report.js';
 import * as home from './views/home.js';
+import {startDemo, endDemo} from './demo.js';
 
 const TABS = [['home', 'Home'], ['analysis', 'Analysis'], ['add', 'Add data'], ['flags', 'Flags'], ['ask', 'Ask'], ['sheet', 'Spreadsheet'], ['admin', 'Admin']];
 const VIEWS = {home, analysis, add, flags, ask, sheet, admin, report};
@@ -18,6 +19,7 @@ const ind = h('span', {class: 'tab-ind', 'aria-hidden': 'true'}); // the blue li
 
 // ---------- sign-in ----------
 function showSignin(note) {
+  if (ctx.demo) { ctx.demo = false; endDemo(); ctx.uploads = null; ctx.modes = {}; ctx.chats = {}; } // the demo's data goes with it
   setBar(false); $('tabbar').hidden = true; $('main').removeAttribute('aria-labelledby'); ctx.team = null; nav++; stop?.(); stop = null;
   const err = h('p', {class: 'err-text', role: 'alert', id: 'si-err'}, note || '');
   const email = h('input', {type: 'email', id: 'si-email', autocomplete: 'username', required: true});
@@ -26,6 +28,7 @@ function showSignin(note) {
   const form = h('form', {class: 'stack', novalidate: true, onsubmit: async e => {
     e.preventDefault();
     if (!email.value.trim() || !pass.value) { err.textContent = 'Enter your email and password.'; return; }
+    if (email.value.trim().toLowerCase() === 'demo' && pass.value === 'demo') return openDemo(btn, err);
     btn.disabled = true; btn.textContent = 'Signing in...'; err.textContent = '';
     const {error} = await ctx.sb.auth.signInWithPassword({email: email.value.trim(), password: pass.value}).catch(() => ({error: {}}));
     btn.disabled = false; btn.textContent = 'Sign in';
@@ -38,8 +41,17 @@ function showSignin(note) {
   setView('Sign in', h('div', {class: 'col-sm stack-lg'},
     h('div', {class: 'stack'}, h('h1', {}, 'Sign in'), h('p', {class: 'muted'}, 'Check a company\'s budget-vs-actual data before it goes out.')),
     h('div', {class: 'card'}, form),
-    h('p', {class: 'caption'}, 'Demo data is fictional. The app recommends; you make the changes.')));
+    h('div', {class: 'demo-login'}, h('p', {}, h('strong', {}, 'For demo users')),
+      h('p', {class: 'demo-cred'}, h('span', {}, 'Username: ', h('code', {}, 'demo')), h('span', {}, 'Password: ', h('code', {}, 'demo'))),
+      h('p', {class: 'hint'}, 'See every demo company and try it out. Nothing you add is saved: it disappears when you sign out or refresh.')),
+    h('p', {class: 'caption'}, 'Demo companies use fictional data, except the public USPS fiscal 2006 example. The app recommends; you make the changes.')));
   email.focus();
+}
+// demo login: no account, the data lives only in this tab (demo.js), so signing out or refreshing resets it
+async function openDemo(btn, err) {
+  btn.disabled = true; btn.textContent = 'Opening the demo...'; err.textContent = '';
+  try { await startDemo(); } catch { btn.disabled = false; btn.textContent = 'Sign in'; err.textContent = 'The demo could not load. Check your connection and try again.'; return; }
+  ctx.demo = true; afterSignIn();
 }
 // the top bar shows on every screen; signed out it holds only the logo, which then leads back to the front page
 function setBar(signedIn) {
@@ -73,11 +85,11 @@ async function afterSignIn(pickId) {
 
 async function selectTeam(t) {
   ctx.team = t; ctx.uploads = null; $('team-pick').value = t.id; $('team-name').textContent = t.name;
-  try { localStorage.setItem(TEAM_KEY, t.id); } catch { /* optional */ }
+  if (!ctx.demo) try { localStorage.setItem(TEAM_KEY, t.id); } catch { /* optional */ }
   ctx.role = t.my_role; ctx.isOwner = t.my_role === 'admin' || t.my_role === 'developer';
   let badge = $('role-badge');
   if (!badge) { badge = h('span', {id: 'role-badge', class: 'badge neutral'}); $('team-name').after(badge); }
-  badge.textContent = {developer: 'Developer', admin: 'Admin', analyst: 'Analyst'}[t.my_role] || '';
+  badge.textContent = {developer: 'Developer', admin: 'Admin', analyst: 'Analyst', demo: 'Demo'}[t.my_role] || '';
   buildTabs();
   if (!location.hash || location.hash === '#') location.hash = '#home'; else route();
 }
@@ -137,7 +149,7 @@ $('team-pick').addEventListener('change', e => { const t = ctx.teams.find(x => x
   if (location.hash.includes('/')) history.replaceState(null, '', location.hash.split('/')[0]);
   stop?.(); stop = null; nav++; selectTeam(t);
 } });
-$('sign-out').addEventListener('click', async () => { await ctx.sb.auth.signOut().catch(() => {}); showSignin(); });
+$('sign-out').addEventListener('click', async () => { if (!ctx.demo) await ctx.sb.auth.signOut().catch(() => {}); showSignin(); });
 (async function init() {
   try {
     const cfg = await (await fetch('/api/config')).json();

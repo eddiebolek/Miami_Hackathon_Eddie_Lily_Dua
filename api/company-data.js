@@ -15,7 +15,7 @@ export default route(['GET','POST'],async(req,res)=>{
 });
 
 // Every number here is exact BigInt cents from lib/; the page never does this math.
-function computed(r){
+export function computed(r){
   const out={};
   for(const n of ['revenue','opex']){
     const b=r[`budget_${n}_usd`];
@@ -41,6 +41,20 @@ async function add(db,req,res){
   let rows;
   try{rows=parseCSV(csv);}catch(e){fail(422,'invalid_sheet',`Could not read the file as CSV: ${e.message}`,[{row:null,column:null,message:e.message}]);}
   if(mapping)rows=applyMapping(rows,mapping); // ValidationError -> 422 with details
+  checkNewRows(rows);
+  await requireMember(db,team_id);
+  const {dataset,records}=await trueCopy(db,team_id);
+  const {new_rows,warnings}=planAdd(rows,records);
+  if(confirm!==true)return send(res,200,{data:{count:rows.length,new_rows,warnings}});
+  const ds=dataset??checked(await db.from('rhb_datasets').insert({team_id,name:'Company data',source:'company data'}).select('id').single());
+  // One plain insert (never upsert): a repeated record_key is rejected by the database (23505 -> 409) and nothing is written.
+  checked(await db.from('rhb_records').insert(new_rows.map(({source_row,...payload})=>({team_id,dataset_id:ds.id,record_key:payload.record_id,source_row,payload}))));
+  send(res,201,{data:{added:rows.length,dataset_id:ds.id}});
+}
+
+// The two checks below need no database, so the demo login (api/demo.js) runs exactly the same code.
+// The file on its own: valid columns and amounts, no totals rows, no repeated month.
+export function checkNewRows(rows){
   validateSheet(rows,null); // ValidationError -> 422 with details
   const dup=[],seenId=new Set(),seenKey=new Set();
   rows.forEach((r,i)=>{
@@ -50,21 +64,18 @@ async function add(db,req,res){
     seenId.add(r.record_id);seenKey.add(k);
   });
   if(dup.length)fail(422,'invalid_sheet',`Row ${dup[0].row}: ${dup[0].message}`,dup);
-  await requireMember(db,team_id);
-  const {dataset,records}=await trueCopy(db,team_id);
+}
+
+// Against the saved rows ({record_key, source_row, payload}): nothing already saved may come back, and
+// warnings = flags that appear only because of the new rows (e.g. a January opening that does not match December's closing).
+export function planAdd(rows,records){
   const have=records.map(r=>r.payload);
   const ids=new Set(records.map(r=>r.record_key)),keys=new Set(have.map(r=>`${r.company_id}|${r.period}`));
   const clash=rows.map((r,i)=>({r,i})).filter(({r})=>ids.has(r.record_id)||keys.has(`${r.company_id}|${r.period}`))
     .map(({r,i})=>({row:i+2,column:'record_id',message:`${r.record_id} (${r.company_id} ${r.period}) is already in the company data. Existing rows are never changed.`}));
   if(clash.length)fail(409,'already_exists',`${clash.length} row${clash.length>1?'s are':' is'} already in the company data. Nothing was added.`,clash);
-  // Warnings = flags that appear only because of the new rows (e.g. a January opening that does not match December's closing).
   const before=new Set((have.length?checkSheet(have,null):[]).map(f=>f.key));
   const warnings=checkSheet([...have,...rows],null).filter(f=>!before.has(f.key));
   const first=(records.at(-1)?.source_row??1)+1;
-  const new_rows=rows.map((r,i)=>({...r,source_row:first+i}));
-  if(confirm!==true)return send(res,200,{data:{count:rows.length,new_rows,warnings}});
-  const ds=dataset??checked(await db.from('rhb_datasets').insert({team_id,name:'Company data',source:'company data'}).select('id').single());
-  // One plain insert (never upsert): a repeated record_key is rejected by the database (23505 -> 409) and nothing is written.
-  checked(await db.from('rhb_records').insert(new_rows.map(({source_row,...payload})=>({team_id,dataset_id:ds.id,record_key:payload.record_id,source_row,payload}))));
-  send(res,201,{data:{added:rows.length,dataset_id:ds.id}});
+  return {new_rows:rows.map((r,i)=>({...r,source_row:first+i})),warnings};
 }

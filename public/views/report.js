@@ -63,7 +63,7 @@ function paint(id, dataset, flags, uploads) {
       : h('div', {class: 'zero'}, h('p', {class: 'big'}, '0 flags'), h('p', {}, 'No mismatches found in this sheet.')),
     h('div', {class: 'actions no-print'}, signBtn, h('button', {type: 'button', class: 'btn', onclick: () => print()}, 'Print report'), h('a', {class: 'btn', href: `#flags/${id}`}, 'Back to flags'),
       !so && c.open ? h('p', {class: 'err-text', role: 'status'}, `${plural(c.open, 'flag')} still open. Mark each one before signing off.`) : null),
-    h('p', {class: 'caption'}, 'Calculations done in code from the uploaded file. Demo data is fictional. This app only recommends; it never changes your spreadsheet.'),
+    h('p', {class: 'caption'}, 'Calculations done in code from the uploaded file. This app only recommends; it never changes your spreadsheet.'),
     dlg));
   paintRecheck();
 }

@@ -46,8 +46,8 @@ export async function render(uploadId, sig) {
     const types = [...new Set(flags.map(f => f.type))].sort();
     if (st.type !== 'all' && !types.includes(st.type)) st.type = 'all';
     if (document.activeElement !== typeSel && document.activeElement !== upSel) {
-    typeSel.replaceChildren(h('option', {value: 'all'}, 'All types'), types.map(t => h('option', {value: t, selected: t === st.type}, sentence(t))));
-    upSel.replaceChildren(h('option', {value: 'all'}, 'All uploads'), uploads.map(u => h('option', {value: u.dataset_id, selected: u.dataset_id === st.upload}, `${cleanName(u.name)} · ${when(u.created_at)}`)));
+    typeSel.replaceChildren(h('option', {value: 'all'}, 'All types'), ...types.map(t => h('option', {value: t, selected: t === st.type}, sentence(t))));
+    upSel.replaceChildren(h('option', {value: 'all'}, 'All uploads'), ...uploads.map(u => h('option', {value: u.dataset_id, selected: u.dataset_id === st.upload}, `${cleanName(u.name)} · ${when(u.created_at)}`)));
     upSel.value = st.upload; typeSel.value = st.type;
     }
     paintChips(); paintSummary(); paintRows();

@@ -35,6 +35,7 @@ export function render() {
       h('p', {id: `dash-${k}-d`}, text),
       h('span', {class: 'dash-go', 'aria-hidden': 'true'}, 'Open ', h('span', {}, '→')))));
   setView('Home', h('div', {class: 'dash stack-lg'},
-    h('div', {class: 'stack'}, h('h1', {}, ctx.team.name), h('p', {class: 'muted'}, 'Choose where to start. You can switch sections any time from the tabs at the top.')),
+    h('div', {class: 'stack'}, h('h1', {}, ctx.team.name), h('p', {class: 'muted'}, 'Choose where to start. You can switch sections any time from the tabs at the top.'),
+      ctx.demo ? h('p', {class: 'demo-note'}, h('strong', {}, 'Demo login. '), 'Switch companies at the top. Upload, add rows and mark flags freely: it all disappears when you sign out or refresh.') : null),
     h('ul', {class: 'dash-grid', 'aria-label': 'Sections'}, cards)));
 }
