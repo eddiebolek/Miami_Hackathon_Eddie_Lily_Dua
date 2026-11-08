@@ -49,8 +49,19 @@ p { margin: 0; text-wrap: pretty; }
 /* ---------- zoom scene ---------- */
 .zoom { position: relative; height: 640vh; }
 .stage { position: sticky; top: 0; height: 100vh; height: 100dvh; overflow: hidden; background: #1B2747; }
-.city, .office, .cta-wrap { position: absolute; inset: 0; }
-.city { width: 100%; height: 100%; display: block; }
+.shots, .screen, .cta-wrap { position: absolute; inset: 0; }
+.shots { overflow: hidden; background: #0B0E16; }
+/* each photo keeps its 16:9 shape and covers the viewport; JS adds the zoom transform */
+.shot {
+  position: absolute; left: 50%; top: 50%; width: max(100vw, 177.78vh); width: max(100vw, 177.78dvh); aspect-ratio: 16 / 9;
+  transform: translate(-50%, -50%); transform-origin: 50% 50%; opacity: 0; will-change: transform, opacity;
+}
+.shot[data-shot="1"] { opacity: 1; }
+.shot img { display: block; width: 100%; height: 100%; }
+/* image 3's monitor screen, measured on the 1536x864 photo: (578,270) to (926,468) */
+.mini { position: absolute; left: 37.63%; top: 31.25%; width: 22.66%; height: 22.92%; overflow: hidden; background: var(--bg); border-radius: 2px; }
+.mini .mock { inset: auto; left: 0; top: 0; width: 1280px; height: 728px; transform-origin: 0 0; filter: brightness(.9) saturate(.95); }
+.mini::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, rgb(255 214 170 / .14), transparent 38%, transparent 70%, rgb(255 255 255 / .06)); pointer-events: none; }
 
 .hero {
   position: absolute; left: 0; right: 0; top: calc(var(--bar-h) + clamp(32px, 7vh, 72px)); z-index: 2;
@@ -58,26 +69,14 @@ p { margin: 0; text-wrap: pretty; }
 }
 .hero h1 {
   max-width: 17ch; margin: 0 auto; color: #fff; font: 700 clamp(2rem, 1.2rem + 3.4vw, 3.75rem)/1.08 var(--serif); letter-spacing: -.015em;
-  text-shadow: 0 2px 24px rgb(15 20 40 / .45);
+  text-shadow: 0 2px 24px rgb(10 14 30 / .55);
 }
-.hero-hint { margin-top: 16px; color: rgb(255 255 255 / .82); font-weight: 500; font-size: .9375rem; }
+.hero-hint { margin-top: 16px; color: rgb(255 255 255 / .85); font-weight: 500; font-size: .9375rem; text-shadow: 0 1px 8px rgb(10 14 30 / .6); }
 .chev { display: inline-block; width: 8px; height: 8px; margin-left: 6px; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-3px) rotate(45deg); animation: nudge 1.8s var(--ease) infinite; }
 @keyframes nudge { 50% { transform: translateY(1px) rotate(45deg); } }
 
-/* office: the monitor's screen is exactly the viewport, so the final frame is crisp at scale(1) */
-.office { opacity: 0; transform-origin: 50% 50%; will-change: transform, opacity; }
-.room {
-  position: absolute; inset: -160vh -160vw;
-  background:
-    radial-gradient(60vmax 40vmax at 50% 38%, rgb(255 196 128 / .18), transparent 70%),
-    linear-gradient(#2E241C, #3A2C22 55%, #2A1F17);
-}
-.desk { position: absolute; left: -160vw; right: -160vw; top: calc(100% + 24vh); height: 160vh; background: linear-gradient(#5A4230, #3B2A1E 18%, #20160F); box-shadow: 0 -2px 0 #6E523C; }
-.stand { position: absolute; left: 50%; top: calc(100% + 2vmin); width: 16vw; height: 24vh; transform: translateX(-50%); background: linear-gradient(90deg, #15171B, #2A2E35 50%, #15171B); clip-path: polygon(40% 0, 60% 0, 62% 88%, 100% 92%, 100% 100%, 0 100%, 0 92%, 38% 88%); }
-.monitor {
-  position: absolute; inset: 0; background: var(--bg);
-  box-shadow: 0 0 0 1.8vmin #0A0B0E, 0 0 0 2vmin #2C3038, 0 8vmin 16vmin rgb(0 0 0 / .55);
-}
+/* the Tally screen is drawn at viewport size and shrunk onto image 4's monitor, so the final frame is crisp */
+.screen { inset: auto; left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; opacity: 0; transform-origin: 50% 50%; will-change: transform, opacity; }
 
 /* ---------- mock app screen ---------- */
 .mock { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); font-feature-settings: "tnum" 1; }
@@ -173,7 +172,7 @@ p { margin: 0; text-wrap: pretty; }
 
 /* reduced motion: no zoom or scroll; JS shows two still scenes and these crossfade */
 @media (prefers-reduced-motion: reduce) {
-  .office, .hero, .mock, .veil { transition: opacity 300ms linear; }
+  .shot, .screen, .hero, .mock, .veil { transition: opacity 300ms linear; }
   .chev { animation: none; }
   .cta-wrap, .cta-wrap.on { transform: none; filter: none; transition: opacity 300ms linear; }
   .lp-login:active, .cta:active { transform: none; }
