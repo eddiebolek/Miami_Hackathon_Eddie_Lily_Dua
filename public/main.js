@@ -1,5 +1,5 @@
 import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm';
-import {$, h, ctx, api, q, setView, banner} from './util.js';
+import {$, h, ctx, api, q, setView, banner, reduce} from './util.js';
 import * as analysis from './views/analysis.js';
 import * as add from './views/add.js';
 import * as flags from './views/flags.js';
@@ -14,6 +14,7 @@ const TABS = [['home', 'Home'], ['analysis', 'Analysis'], ['add', 'Add data'], [
 const VIEWS = {home, analysis, add, flags, ask, sheet, admin, report};
 const TEAM_KEY = 'sheetcheck.team';
 let nav = 0, stop = null, tabs = [];
+const ind = h('span', {class: 'tab-ind', 'aria-hidden': 'true'}); // the blue line under the selected tab; slides between tabs
 
 // ---------- sign-in ----------
 function showSignin(note) {
@@ -85,14 +86,23 @@ async function selectTeam(t) {
 function buildTabs() {
   const bar = $('tabbar'); bar.hidden = false;
   tabs = TABS.filter(([k]) => k !== 'admin' || ctx.isOwner).map(([k, t]) => h('button', {type: 'button', role: 'tab', id: `tab-${k}`, 'data-tab': k, 'aria-selected': 'false', tabindex: '-1', onclick: () => go(k)}, t));
-  bar.replaceChildren(...tabs);
+  bar.replaceChildren(...tabs, ind);
 }
+function moveInd(instant) {
+  const b = tabs.find(t => t.getAttribute('aria-selected') === 'true');
+  if (!b || $('tabbar').hidden) return;
+  ind.style.transition = instant || reduce.matches ? 'none' : '';
+  ind.style.transform = `translateX(${b.offsetLeft}px) scaleX(${b.offsetWidth / 100})`;
+}
+addEventListener('resize', () => moveInd(true));
+document.fonts?.ready.then(() => moveInd(true));
 function go(k) { const t = `#${k}`; if (location.hash === t) route(); else location.hash = t; }
 function paintTabs(key) {
   let found = false;
   tabs.forEach(b => { const on = b.dataset.tab === key; found ||= on; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
   if (!found && tabs[0]) tabs[0].tabIndex = 0;
   $('main').setAttribute('aria-labelledby', `tab-${key}`);
+  moveInd(!ind.dataset.placed); ind.dataset.placed = '1';
 }
 $('tabbar').addEventListener('keydown', e => {
   const i = tabs.indexOf(document.activeElement);
@@ -108,7 +118,9 @@ async function route() {
   const [name, arg] = location.hash.slice(1).split('/');
   let key = VIEWS[name] ? name : 'home';
   if (key === 'admin' && !ctx.isOwner) key = 'home';
-  $('tabbar').hidden = key === 'home'; // the dashboard lists every section itself; the tabs appear once you pick one
+  const bar = $('tabbar'), wasHidden = bar.hidden;
+  bar.hidden = key === 'home'; // the dashboard lists every section itself; the tabs appear once you pick one
+  if (wasHidden && !bar.hidden) { delete ind.dataset.placed; if (!reduce.matches) bar.animate([{opacity: 0, transform: 'translateY(-6px)'}, {opacity: 1, transform: 'none'}], {duration: 220, easing: 'cubic-bezier(0.2, 0, 0, 1)'}); }
   paintTabs(key === 'report' ? 'flags' : key);
   if (key === 'home') $('main').removeAttribute('aria-labelledby'); // its tab is hidden; the page heading names it
   const mine = ++nav, sig = {stale: () => mine !== nav};

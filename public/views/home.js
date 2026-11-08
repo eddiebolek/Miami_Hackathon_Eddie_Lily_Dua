@@ -28,8 +28,8 @@ const ITEMS = [
 ];
 
 export function render() {
-  const cards = ITEMS.filter(([k]) => k !== 'admin' || ctx.isOwner).map(([k, title, text]) =>
-    h('li', {}, h('a', {class: 'dash-card', href: `#${k}`, 'aria-labelledby': `dash-${k}`, 'aria-describedby': `dash-${k}-d`},
+  const cards = ITEMS.filter(([k]) => k !== 'admin' || ctx.isOwner).map(([k, title, text], i) =>
+    h('li', {style: `--i: ${i}`}, h('a', {class: 'dash-card', href: `#${k}`, 'aria-labelledby': `dash-${k}`, 'aria-describedby': `dash-${k}-d`},
       h('span', {class: 'dash-icon'}, icon(k)),
       h('h2', {id: `dash-${k}`}, title),
       h('p', {id: `dash-${k}-d`}, text),

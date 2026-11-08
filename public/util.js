@@ -28,6 +28,8 @@ export function setView(title, ...nodes) {
   banner(null);
   const main = $('main');
   main.replaceChildren(...nodes);
+  // each new screen rises in softly; skipped when the person asked for less motion
+  if (!reduce.matches) main.animate([{opacity: 0, transform: 'translateY(8px)'}, {opacity: 1, transform: 'none'}], {duration: 260, easing: 'cubic-bezier(0.2, 0, 0, 1)'});
   document.title = `${title} · Tally`;
   const h1 = main.querySelector('h1');
   h1?.setAttribute('tabindex', '-1');

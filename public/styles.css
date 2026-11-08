@@ -86,7 +86,9 @@ label, legend { font-weight: 500; font-size: var(--fs-sm); }
 input[type=email], input[type=password], input[type=text], textarea, select {
   width: 100%; min-height: 40px; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border-strong); border-radius: var(--r-sm);
   background: var(--surface); color: var(--text); font: inherit;
+  transition: border-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
 }
+input[type=email]:hover, input[type=password]:hover, input[type=text]:hover, textarea:hover, select:hover { border-color: var(--text-3); }
 textarea { min-height: 72px; resize: vertical; }
 .btn {
   min-height: 40px; padding: 0 var(--sp-4); border-radius: var(--r-md); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
@@ -130,7 +132,8 @@ textarea { min-height: 72px; resize: vertical; }
 .head { display: flex; flex-wrap: wrap; gap: var(--sp-3) var(--sp-6); justify-content: space-between; align-items: flex-end; margin-bottom: var(--sp-4); }
 .summary { color: var(--text-2); font-size: var(--fs-sm); }
 .filters { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
-.chip { min-height: 40px; padding: 0 var(--sp-4); border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); color: var(--text); font: 500 var(--fs-sm)/1 var(--font); cursor: pointer; transition: background-color var(--dur-1) var(--ease); }
+.chip { min-height: 40px; padding: 0 var(--sp-4); border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); color: var(--text); font: 500 var(--fs-sm)/1 var(--font); cursor: pointer; transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+.chip:active { transform: scale(.97); }
 .chip[aria-pressed=true] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-6); align-items: start; }
 @media (min-width: 1200px) {
@@ -231,10 +234,11 @@ dialog[open] { animation: rise var(--dur-3) var(--ease); }
 .company { flex: 1; display: flex; align-items: center; min-width: 0; color: var(--text-2); font-size: var(--fs-sm); }
 .company select { width: auto; max-width: 100%; min-height: 40px; }
 #team-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tabbar { display: flex; gap: var(--sp-1); padding: 0 var(--sp-6); background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: thin; }
+.tabbar { position: relative; display: flex; gap: var(--sp-1); padding: 0 var(--sp-6); background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: thin; }
 .tabbar button { min-height: 44px; padding: 0 var(--sp-4); border: 0; border-bottom: 3px solid transparent; background: none; color: var(--text-2); font: 500 var(--fs-md)/1 var(--font); cursor: pointer; white-space: nowrap; transition-property: color, border-color, background-color; transition-duration: var(--dur-1); transition-timing-function: var(--ease); }
 .tabbar button:hover { color: var(--text); background: var(--row-selected); }
-.tabbar button[aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.tabbar button[aria-selected=true] { color: var(--text); font-weight: 600; }
+.tab-ind { position: absolute; left: 0; bottom: 0; width: 100px; height: 3px; background: var(--accent); transform-origin: 0 0; transform: scaleX(0); transition: transform var(--dur-3) var(--ease); pointer-events: none; }
 .tabbar button:focus-visible { outline-offset: -3px; }
 .mode { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); align-items: center; }
 .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--sp-3); }
@@ -311,3 +315,13 @@ td select { min-width: 14rem; max-width: 100%; }
 .dash-go span { display: inline-block; transition: transform var(--dur-2) var(--ease); }
 .dash-card:hover .dash-go span { transform: translateX(3px); }
 @media (prefers-reduced-motion: reduce) { .dash-card, .dash-card:hover, .dash-card:active, .dash-card:hover .dash-go span { transform: none; } }
+
+/* motion: screens and banners ease in; same-site page changes cross-fade with the logo gliding between pages */
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes drop { from { opacity: 0; transform: translateY(-4px); } }
+.dash-grid > li { animation: rise var(--dur-3) var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
+.banner { animation: drop var(--dur-2) var(--ease) both; }
+.tabbar button:active { background: var(--border); }
+@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 260ms; animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }
+.topbar .mark { view-transition-name: tally-logo; }
