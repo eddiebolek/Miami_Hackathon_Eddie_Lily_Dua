@@ -34,9 +34,9 @@ if (tbody) {
 const PW = 1536, PH = 864;
 // where each photo sits inside the one before, in the parent's pixels: [x, y, x scale, y scale]
 const REL = [
-  [527.5, 346, .30312, .30312], // tower shaft in the skyline
-  [526.3, 340.03, .318, .31595], // glass wall in the shaft
-  [510.25, 362.6, .33454, .2555], // a few floors in the wall (floor lines matched)
+  [527.5, 244.15168, .30312, .30312], // tower shaft in the skyline (square photo)
+  [524.017, 560.184, .328385, .328385], // glass wall in the shaft (square photo)
+  [510.25, 698.6, .33454, .2555], // a few floors in the wall (floor lines matched)
   [564.24, 325.7, .26357, .347], // the lit window up close
   [412.27, 198.72, .47297, .47297], // the office through the glass
 ];
@@ -45,6 +45,11 @@ for (const [ox, oy, sx, sy] of REL) {
   const p = LAYERS[LAYERS.length - 1];
   LAYERS.push({o: [p.o[0] + ox * p.sx, p.o[1] + oy * p.sy], sx: p.sx * sx, sy: p.sy * sy});
 }
+// each photo fades in while its width grows across this share of the screen width
+// (the shaft waits until the tower is close enough that the lit window is no longer a dot)
+const FADE = [[0, 0], [.36, .6], [.12, .25], [.12, .25], [.12, .25], [.12, .25]];
+// height / width of each photo: the shaft and wall photos are square so they cover the screen top to bottom
+const AR = [9 / 16, 1, 1, 9 / 16, 9 / 16, 9 / 16];
 const L3 = LAYERS[LAYERS.length - 1];
 const SCR = [578, 270, 926, 468]; // the office monitor's screen (office-photo pixels)
 const toPx1 = (l, q) => [l.o[0] + q[0] * l.sx, l.o[1] + q[1] * l.sy];
@@ -88,13 +93,14 @@ function frame() {
     const el = shots[i], Sx = l.sx * Z, Sy = l.sy * Z, [x, y] = toScreen(l.o);
     el.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${Sx.toFixed(5)}, ${Sy.toFixed(5)})`;
     const n = LAYERS[i + 1], small = Sx * W / VW;
-    let hide = i > 0 && small < .12;
+    const [fa, fb] = FADE[i];
+    let hide = i > 0 && small < fa;
     if (n) {
       const [nx, ny] = toScreen(n.o);
-      hide = hide || (nx <= 0 && ny <= 0 && nx + n.sx * Z * W >= VW && ny + n.sy * Z * W * 9 / 16 >= VH);
+      hide = hide || (nx <= 0 && ny <= 0 && nx + n.sx * Z * W >= VW && ny + n.sy * Z * W * AR[i + 1] >= VH);
     }
     el.style.display = hide ? 'none' : '';
-    if (i) el.style.opacity = rm ? 1 : clamp((small - .12) / .13).toFixed(3);
+    if (i) el.style.opacity = rm ? 1 : clamp((small - fa) / (fb - fa)).toFixed(3);
   });
   const S3 = L3.sx * Z;
 

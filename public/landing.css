@@ -56,6 +56,7 @@ p { margin: 0; text-wrap: pretty; }
   position: absolute; left: 0; top: 0; width: max(100vw, 177.78vh); width: max(100vw, 177.78dvh); aspect-ratio: 16 / 9;
   transform-origin: 0 0; will-change: transform; backface-visibility: hidden;
 }
+.shot.square { aspect-ratio: 1; }
 .shot img { display: block; width: 100%; height: 100%; }
 /* covers the AI-drawn dashboard on photo 3's monitor; the Tally screen sits on top of it */
 .screen-bg { position: absolute; left: 0; top: 0; width: 100px; height: 100px; background: var(--bg); transform-origin: 0 0; will-change: transform; }
