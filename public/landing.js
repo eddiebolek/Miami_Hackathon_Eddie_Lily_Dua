@@ -66,7 +66,9 @@ const total = () => Math.max(1, scene.offsetHeight - innerHeight);
 
 let W = 0, VW = 0, VH = 0, ZEND = 1;
 function measure() {
-  VW = innerWidth; VH = screen.offsetHeight; W = shots[0].offsetWidth;
+  VW = innerWidth; VH = screen.offsetHeight;
+  // every photo box has the same width; read it from one that is shown (a hidden one measures 0)
+  W = Math.max(...shots.map(s => s.offsetWidth));
   // end zoom: photo 3's screen covers the viewport, so the Tally screen ends at exactly scale 1
   const sw = (SCR[2] - SCR[0]) * L3.sx * W / PW, sh = (SCR[3] - SCR[1]) * L3.sy * W / PW;
   ZEND = Math.max(VW / sw, VH / sh);
