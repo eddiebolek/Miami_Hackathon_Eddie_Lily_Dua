@@ -3,28 +3,117 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
-<title>Tally</title>
+<meta name="color-scheme" content="dark">
+<title>Tally: financial audit</title>
+<meta name="description" content="Tally rechecks every total, variance and cash roll-forward in a budget-vs-actual spreadsheet and shows analysts exactly where it disagrees.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,700&display=swap">
+<link rel="stylesheet" href="landing.css">
 </head>
 <body>
-<a class="skip" href="#main">Skip to content</a>
-<header class="topbar" id="topbar" hidden>
-  <span class="brand">Tally</span>
-  <span class="company">
-    <label class="sr-only" for="team-pick">Company</label>
-    <select id="team-pick" hidden></select>
-    <span id="team-name"></span>
-  </span>
-  <span class="who"><button type="button" class="link" id="sign-out">Sign out</button></span>
+<a class="skip" href="#cta">Skip to Request a demo</a>
+<header class="lp-bar">
+  <a class="lp-logo" href="/" aria-label="Tally home">
+    <svg class="lp-mark" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="24" fill="#8DA3F1"/><g fill="#1D1D1D"><rect x="27" y="24" width="8" height="52" rx="4"/><rect x="40" y="24" width="8" height="52" rx="4"/><rect x="53" y="24" width="8" height="52" rx="4"/><rect x="66" y="24" width="8" height="52" rx="4"/></g><line x1="20" y1="70" x2="82" y2="38" stroke="#1D1D1D" stroke-width="8" stroke-linecap="round"/></svg>
+    <span class="lp-word"><span class="lp-name">Tally</span><span class="lp-sub">Financial audit</span></span>
+  </a>
+  <a class="lp-login" href="app.html">Log in</a>
 </header>
-<nav class="tabbar" id="tabbar" role="tablist" aria-label="Sections" hidden></nav>
-<div id="banner" class="banner" role="alert" hidden></div>
-<main id="main" tabindex="-1" role="tabpanel"></main>
-<p class="sr-only" id="live" role="status" aria-live="polite"></p>
-<script type="module" src="main.js"></script>
+
+<main>
+<section class="zoom" aria-labelledby="hero-title">
+  <div class="stage">
+    <svg id="city" class="city" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#1B2747"/><stop offset=".38" stop-color="#4A5C8C"/>
+          <stop offset=".58" stop-color="#C9917A"/><stop offset=".68" stop-color="#F0B07A"/><stop offset="1" stop-color="#F6C48E"/>
+        </linearGradient>
+        <radialGradient id="sun" cx="1010" cy="610" r="420" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#FFE2B0" stop-opacity=".95"/><stop offset=".25" stop-color="#FFC98A" stop-opacity=".45"/><stop offset="1" stop-color="#FFC98A" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="glass" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#1E2844"/><stop offset=".45" stop-color="#34436B"/>
+          <stop offset=".7" stop-color="#8E7E86"/><stop offset=".86" stop-color="#F2B47A"/><stop offset="1" stop-color="#FFD9A0"/>
+        </linearGradient>
+        <linearGradient id="glare" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#FFE7BF" stop-opacity="0"/><stop offset=".5" stop-color="#FFE7BF" stop-opacity=".55"/><stop offset="1" stop-color="#FFE7BF" stop-opacity="0"/>
+        </linearGradient>
+        <pattern id="floors" width="8" height="8" patternUnits="userSpaceOnUse">
+          <rect y="6.4" width="8" height="1.6" fill="#0E1426" fill-opacity=".55"/>
+        </pattern>
+        <pattern id="mullions" width="10" height="8" patternUnits="userSpaceOnUse">
+          <rect width=".8" height="8" fill="#0E1426" fill-opacity=".35"/>
+        </pattern>
+        <pattern id="lit" width="14" height="12" patternUnits="userSpaceOnUse">
+          <rect width="14" height="12" fill="#151A2B"/><rect x="3" y="3" width="4" height="5" fill="#F7C987" fill-opacity=".55"/>
+        </pattern>
+        <radialGradient id="glow" cx="800" cy="563" r="40" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#FFD7A0" stop-opacity=".55"/><stop offset="1" stop-color="#FFD7A0" stop-opacity="0"/>
+        </radialGradient>
+        <clipPath id="towerClip"><path d="M690 1000 L735 300 L770 205 L792 172 L808 172 L830 205 L870 300 L910 1000 Z"/></clipPath>
+      </defs>
+      <rect width="1600" height="1000" fill="url(#sky)"/>
+      <rect width="1600" height="1000" fill="url(#sun)"/>
+      <path d="M0 640 h60 v-40 h50 v30 h70 v-70 h40 v80 h90 v-30 h60 v50 h80 v-90 h30 v-30 h30 v120 h120 v-40 h70 v50 h140 v-60 h50 v70 h110 v-30 h80 v-80 h40 v100 h90 v-40 h70 v60 h110 v-50 h60 v70 V1000 H0 Z" fill="#3B4466" fill-opacity=".6"/>
+      <g clip-path="url(#towerClip)">
+        <rect x="680" y="160" width="240" height="840" fill="url(#glass)"/>
+        <rect x="680" y="160" width="240" height="840" fill="url(#floors)"/>
+        <rect x="680" y="160" width="240" height="840" fill="url(#mullions)"/>
+        <rect x="840" y="420" width="80" height="260" fill="url(#glare)"/>
+      </g>
+      <path d="M770 205 L792 172 L808 172 L830 205 Z" fill="#9FB0D8" fill-opacity=".35"/>
+      <rect x="798.5" y="40" width="3" height="134" fill="#C9D2EA"/>
+      <circle cx="800" cy="563" r="40" fill="url(#glow)"/>
+      <rect x="788" y="556" width="24" height="15" fill="#F2D2A4"/>
+      <rect x="788.6" y="556.6" width="22.8" height="13.8" fill="#3A2C22"/>
+      <path d="M0 760 h120 v-60 h110 v80 h60 v-40 h150 v120 h-440 Z M1080 1000 v-280 h90 v-50 h120 v90 h80 v-60 h130 v300 Z" fill="url(#lit)"/>
+      <path d="M0 860 h240 v-50 h180 v60 h120 v130 H0 Z M1040 1000 V840 h150 v-40 h170 v70 h240 v130 Z" fill="#10141F"/>
+    </svg>
+
+    <div class="hero">
+      <h1 id="hero-title">Catch spreadsheet errors before they leave the building.</h1>
+      <p class="hero-hint" aria-hidden="true">Scroll to look inside <span class="chev"></span></p>
+    </div>
+
+    <div class="office" aria-hidden="true">
+      <div class="room"></div>
+      <div class="desk"></div>
+      <div class="stand"></div>
+      <div class="monitor">
+        <div class="mock">
+          <div class="mock-top">
+            <span class="mock-brand">Tally</span><span class="mock-co">Northwind Holdings</span><span class="mock-out">Sign out</span>
+          </div>
+          <div class="mock-tabs"><span>Analysis</span><span>Add data</span><span class="on">Flags</span><span>Ask</span><span>Spreadsheet</span><span>Admin</span></div>
+          <div class="mock-body">
+            <div class="mock-feed">
+              <div class="mock-head">
+                <div><h2>Flags</h2><p>40 flags (32 Mismatch, 8 Needs review) · 0 of 40 marked · all uploads</p></div>
+                <div class="mock-refresh"><span class="mock-btn">Refresh</span><span class="mock-time">Updated 19:20:26</span></div>
+              </div>
+              <div class="mock-chips"><span class="on">All 40</span><span>Open 40</span><span>Corrected 0</span><span>No change needed 0</span><i></i><span class="on">Any severity</span><span>Mismatch</span><span>Needs review</span></div>
+              <table class="mock-table">
+                <thead><tr><th>Cell</th><th>Company</th><th>Period</th><th>What looks wrong</th><th class="up">Upload</th><th class="n">Sheet</th><th class="n">Suggested</th><th>Status</th></tr></thead>
+                <tbody id="mock-rows"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="veil"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cta-wrap">
+      <h2>Every number, rechecked.</h2>
+      <p>Tally recomputes every total, variance and cash roll-forward in code, then points the analyst to the exact cell that disagrees. It recommends. People make the change.</p>
+      <a id="cta" class="cta" href="demo.html">Request a demo</a>
+      <p class="cta-note">Screens show synthetic demo data.</p>
+    </div>
+  </div>
+</section>
+</main>
+<script src="landing.js" defer></script>
 </body>
 </html>
