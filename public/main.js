@@ -8,15 +8,16 @@ import * as sheet from './views/sheet.js';
 import * as admin from './views/admin.js';
 import {newCompanyForm} from './views/admin.js';
 import * as report from './views/report.js';
+import * as home from './views/home.js';
 
-const TABS = [['analysis', 'Analysis'], ['add', 'Add data'], ['flags', 'Flags'], ['ask', 'Ask'], ['sheet', 'Spreadsheet'], ['admin', 'Admin']];
-const VIEWS = {analysis, add, flags, ask, sheet, admin, report};
+const TABS = [['home', 'Home'], ['analysis', 'Analysis'], ['add', 'Add data'], ['flags', 'Flags'], ['ask', 'Ask'], ['sheet', 'Spreadsheet'], ['admin', 'Admin']];
+const VIEWS = {home, analysis, add, flags, ask, sheet, admin, report};
 const TEAM_KEY = 'sheetcheck.team';
 let nav = 0, stop = null, tabs = [];
 
 // ---------- sign-in ----------
 function showSignin(note) {
-  $('topbar').hidden = true; $('tabbar').hidden = true; $('main').removeAttribute('aria-labelledby'); ctx.team = null; nav++; stop?.(); stop = null;
+  setBar(false); $('tabbar').hidden = true; $('main').removeAttribute('aria-labelledby'); ctx.team = null; nav++; stop?.(); stop = null;
   const err = h('p', {class: 'err-text', role: 'alert', id: 'si-err'}, note || '');
   const email = h('input', {type: 'email', id: 'si-email', autocomplete: 'username', required: true});
   const pass = h('input', {type: 'password', id: 'si-pass', autocomplete: 'current-password', required: true});
@@ -34,10 +35,15 @@ function showSignin(note) {
     h('div', {class: 'field'}, h('label', {for: 'si-pass'}, 'Password'), pass),
     err, btn);
   setView('Sign in', h('div', {class: 'col-sm stack-lg'},
-    h('div', {class: 'stack'}, h('p', {}, h('a', {class: 'brand', href: '/'}, 'Tally')), h('h1', {}, 'Sign in'), h('p', {class: 'muted'}, 'Check a company\'s budget-vs-actual data before it goes out.')),
+    h('div', {class: 'stack'}, h('h1', {}, 'Sign in'), h('p', {class: 'muted'}, 'Check a company\'s budget-vs-actual data before it goes out.')),
     h('div', {class: 'card'}, form),
     h('p', {class: 'caption'}, 'Demo data is fictional. The app recommends; you make the changes.')));
   email.focus();
+}
+// the top bar shows on every screen; signed out it holds only the logo, which then leads back to the front page
+function setBar(signedIn) {
+  const bar = $('topbar'); bar.hidden = false; bar.classList.toggle('bare', !signedIn);
+  bar.querySelector('.brand').setAttribute('href', signedIn ? '#home' : '/');
 }
 ctx.onAuthLost = showSignin;
 ctx.reloadTeams = id => afterSignIn(id);
@@ -45,7 +51,7 @@ ctx.reloadTeams = id => afterSignIn(id);
 document.querySelector('.skip').addEventListener('click', e => { e.preventDefault(); $('main').focus(); });
 
 function showFatal(msg) {
-  $('topbar').hidden = false; $('tabbar').hidden = true;
+  setBar(true); $('tabbar').hidden = true;
   setView('Error', h('div', {class: 'col-md stack'}, h('h1', {}, 'Something went wrong'), h('p', {}, msg), h('button', {type: 'button', class: 'btn', onclick: () => afterSignIn()}, 'Try again')));
 }
 
@@ -53,7 +59,7 @@ async function afterSignIn(pickId) {
   setView('Loading', h('p', {class: 'muted', role: 'status'}, 'Loading your companies...'));
   let data;
   try { const r = await api('/api/companies'); data = r.companies; ctx.isDev = r.is_dev; } catch (e) { if (e.status === 401) return; return showFatal('Could not load your companies.'); }
-  $('topbar').hidden = false;
+  setBar(true);
   if (!data?.length && ctx.isDev) { $('tabbar').hidden = true; $('team-pick').replaceChildren(); ctx.team = null; return setView('New company', h('div', {class: 'col-md stack'}, h('h1', {}, 'Create the first company'), newCompanyForm(id => afterSignIn(id)))); }
   if (!data?.length) { $('tabbar').hidden = true; $('team-pick').replaceChildren(); return setView('No company', h('div', {class: 'col-md stack'}, h('h1', {}, 'No company yet'), h('p', {}, 'Ask the account owner to add you to a company.'))); }
   ctx.teams = data;
@@ -72,7 +78,7 @@ async function selectTeam(t) {
   if (!badge) { badge = h('span', {id: 'role-badge', class: 'badge neutral'}); $('team-name').after(badge); }
   badge.textContent = {developer: 'Developer', admin: 'Admin', analyst: 'Analyst'}[t.my_role] || '';
   buildTabs();
-  if (!location.hash || location.hash === '#') location.hash = '#analysis'; else route();
+  if (!location.hash || location.hash === '#') location.hash = '#home'; else route();
 }
 
 // ---------- tabs and routing ----------
@@ -100,9 +106,11 @@ async function route() {
   if (!ctx.team) return;
   stop?.(); stop = null;
   const [name, arg] = location.hash.slice(1).split('/');
-  let key = VIEWS[name] ? name : 'analysis';
-  if (key === 'admin' && !ctx.isOwner) key = 'analysis';
+  let key = VIEWS[name] ? name : 'home';
+  if (key === 'admin' && !ctx.isOwner) key = 'home';
+  $('tabbar').hidden = key === 'home'; // the dashboard lists every section itself; the tabs appear once you pick one
   paintTabs(key === 'report' ? 'flags' : key);
+  if (key === 'home') $('main').removeAttribute('aria-labelledby'); // its tab is hidden; the page heading names it
   const mine = ++nav, sig = {stale: () => mine !== nav};
   let cleanup;
   try { cleanup = await VIEWS[key].render(arg ? decodeURIComponent(arg) : undefined, sig); }
