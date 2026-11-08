@@ -9,8 +9,9 @@ export async function render(uploadId, sig) {
   const typeSel = h('select', {id: 'f-type', onchange: e => { st.type = e.target.value; paint(); }});
   const upSel = h('select', {id: 'f-up', onchange: e => { st.upload = e.target.value; paint(); }});
   const tbody = h('tbody');
-  const panel = h('aside', {class: 'panel', 'aria-label': 'Flag details', hidden: true});
-  const split = h('div', {class: 'split'});
+  const panel = h('aside', {class: 'panel', 'aria-label': 'Flag details'});
+  // the details open as an extra row right under the flag you pick; built once so a refresh keeps what you typed
+  const detailRow = h('tr', {class: 'detail-row'}, h('td', {colspan: 9}, panel));
   const reportLink = h('a', {class: 'btn primary', href: '#report', hidden: true}, 'Review report and sign off');
   const rb = refreshBar(() => load(true));
   const live = h('div', {'aria-live': 'polite'});
@@ -18,7 +19,6 @@ export async function render(uploadId, sig) {
     h('caption', {class: 'sr-only'}, 'Flags found across all uploads'),
     h('thead', {}, h('tr', {}, h('th', {scope: 'col'}, h('span', {class: 'sr-only'}, 'Severity')), ['Cell', 'Company', 'Period', 'What looks wrong', 'Upload'].map(t => h('th', {scope: 'col'}, t)),
       h('th', {scope: 'col', class: 'num'}, 'Sheet'), h('th', {scope: 'col', class: 'num'}, 'Suggested'), h('th', {scope: 'col'}, 'Status'))), tbody));
-  split.append(h('div', {}, tableWrap), panel);
   const nameOf = id => cleanName(uploads.find(u => u.dataset_id === id)?.name || 'Upload');
 
   const match = f => (st.status === 'all' || (st.status === 'open' ? !isMarked(f) : st.status === 'corrected' ? f.decision === 'corrected' : f.decision === 'no_change_needed'))
@@ -57,14 +57,15 @@ export async function render(uploadId, sig) {
     const active = list.find(f => f.id === st.selected) || list[0];
     tbody.replaceChildren(...(list.length ? list.map(f => {
       const s = sev(f);
-      const btn = h('button', {type: 'button', class: 'rowbtn', 'data-id': f.id, tabindex: f === active ? '0' : '-1', 'aria-label': `${f.cell}, ${s.text}, ${label(f.type)}`}, f.cell);
-      return h('tr', {'aria-selected': String(f.id === st.selected), onclick: () => select(f.id, true)},
+      const btn = h('button', {type: 'button', class: 'rowbtn', 'data-id': f.id, tabindex: f === active ? '0' : '-1', 'aria-expanded': String(f.id === st.selected), 'aria-label': `${f.cell}, ${s.text}, ${label(f.type)}`}, f.cell);
+      return h('tr', {'aria-selected': String(f.id === st.selected), onclick: () => f.id === st.selected ? close() : select(f.id, true)},
         h('td', {class: 'stripe-cell', 'aria-hidden': 'true'}, h('span', {class: `stripe ${isMarked(f) ? '' : s.cls}`})),
         h('td', {}, btn), h('td', {class: 'mono'}, f.company_id || ''), h('td', {}, period(f.period)),
         h('td', {class: 'what'}, h('span', {class: `badge ${s.cls}`}, s.text), ' ', sentence(f.type)),
         h('td', {class: 'upl'}, nameOf(f.dataset_id)),
         h('td', {class: 'num'}, money(f.sheet_value, f.column, true)), h('td', {class: 'num'}, money(f.suggested_value, f.column, true)), h('td', {}, statusBadge(f)));
     }) : [h('tr', {}, h('td', {colspan: 9}, flags.length ? 'No flags match these filters.' : 'No flags yet. Upload a file on the Analysis tab.'))]));
+    placeDetail();
     if (focusId) tbody.querySelector(`[data-id="${CSS.escape(focusId)}"]`)?.focus();
   }
   tbody.addEventListener('keydown', e => {
@@ -74,14 +75,29 @@ export async function render(uploadId, sig) {
     const n = btns[Math.max(0, Math.min(btns.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
     btns.forEach(b => b.tabIndex = -1); n.tabIndex = 0; n.focus();
   });
-  panel.addEventListener('keydown', e => { if (e.key === 'Escape' && st.selected) tbody.querySelector(`[data-id="${CSS.escape(st.selected)}"]`)?.focus(); });
+  panel.addEventListener('keydown', e => { if (e.key === 'Escape' && st.selected) close(); });
+  const rowOf = id => id && tbody.querySelector(`[data-id="${CSS.escape(id)}"]`)?.closest('tr');
+  function placeDetail() {
+    const tr = rowOf(st.selected);
+    if (tr) tr.after(detailRow); else detailRow.remove();
+  }
+  function markRows() {
+    tbody.querySelectorAll('.rowbtn').forEach(b => {
+      const on = b.dataset.id === st.selected;
+      b.closest('tr').setAttribute('aria-selected', String(on)); b.setAttribute('aria-expanded', String(on));
+      if (st.selected) b.tabIndex = on ? 0 : -1;
+    });
+  }
+  function close() {
+    const id = st.selected;
+    st.selected = null; detailRow.remove(); markRows();
+    tbody.querySelector(`[data-id="${CSS.escape(id)}"]`)?.focus();
+  }
   function select(id, focus) {
     st.selected = id;
     const f = flags.find(x => x.id === id);
     if (!f) return;
-    [...tbody.children].forEach(tr => tr.setAttribute('aria-selected', String(tr.querySelector('.rowbtn')?.dataset.id === id)));
-    tbody.querySelectorAll('.rowbtn').forEach(b => b.tabIndex = b.dataset.id === id ? 0 : -1);
-    split.classList.add('has-panel'); panel.hidden = false;
+    markRows(); placeDetail();
     panel.replaceChildren(detail(f, {saved: (out) => { Object.assign(f, out); paint(); }}));
     announce(`Showing flag ${f.cell}, ${sev(f).text}, ${label(f.type)}.`);
     if (focus) panel.querySelector('h2').focus();
@@ -104,7 +120,7 @@ export async function render(uploadId, sig) {
   setView('Flags', h('div', {class: 'head'}, h('div', {class: 'stack'}, h('h1', {}, 'Flags'), summary), h('div', {class: 'actions'}, reportLink, rb.node)),
     live, h('div', {class: 'filters'}, chips),
     h('div', {class: 'filter-selects'}, h('div', {class: 'field'}, h('label', {for: 'f-up'}, 'Upload'), upSel), h('div', {class: 'field'}, h('label', {for: 'f-type'}, 'Type'), typeSel)),
-    split);
+    tableWrap);
   summary.textContent = 'Loading...';
   await load();
   return autoRefresh(() => load(false));

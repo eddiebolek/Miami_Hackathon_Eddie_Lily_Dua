@@ -325,3 +325,9 @@ td select { min-width: 14rem; max-width: 100%; }
 @media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 260ms; animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }
 .topbar .mark { view-transition-name: tally-logo; }
+
+/* flag details open as a row under the picked flag */
+tbody tr.detail-row, tbody tr.detail-row:hover { background: var(--canvas); }
+.detail-row > td { height: auto; padding: var(--sp-3); }
+/* stays in view when the table is wider than the screen and scrolls sideways */
+.detail-row .panel { position: sticky; left: var(--sp-3); top: auto; max-width: calc(100vw - 2 * var(--sp-4) - 2 * var(--sp-3)); max-height: none; overflow: visible; }
