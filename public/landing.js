@@ -32,16 +32,21 @@ if (tbody) {
 // sits inside photo 2's lit window, and the Tally screen sits on photo 3's monitor. Nothing cuts or crossfades
 // full-screen: each closer photo is already in place, small, and grows. All positions are in photo-1 pixels ("px1").
 const PW = 1536, PH = 864;
-// nest(parent, child): child point `at` lands on parent point `on`; the child is `scale` times photo-1 size of the parent
-const L1 = {o: [0, 0], s: 1};
-const L2 = nest(L1, {on: [764, 520], at: [762, 430], scale: 44 / PW}); // the facade; its floors match the tower's floor lines
-const L3 = nest(L2, {on: [762, 430], at: [750, 382], scale: 118 / 1020}); // photo 3's window pane = photo 2's lit window
+// nest(parent, child): child point `at` lands on parent point `on`; the child spans `scale` of the parent's width.
+// Each step is about 3x, so no photo is ever shown much bigger than its real pixels. Points were measured from the
+// lit window (or tower edges) in each photo.
+const L1 = {o: [0, 0], s: 1}; // whole tower
+const LS = nest(L1, {on: [764, 520], at: [759, 406], scale: .3125}); // tower shaft
+const LW = nest(LS, {on: [759, 406], at: [766, 440], scale: .33}); // glass wall
+const L2 = nest(LW, {on: [766, 440], at: [762, 430], scale: 37 / 118}); // a few floors, one lit window
+const LP = nest(L2, {on: [762, 430], at: [766, 318], scale: 118 / 480}); // the lit window up close
+const L3 = nest(LP, {on: [766, 318], at: [750, 382], scale: 480 / 1020}); // the office through the glass
+const LAYERS = [L1, LS, LW, L2, LP, L3];
 const SCR = [578, 270, 926, 468]; // photo 3's monitor screen (photo-3 pixels)
 const TARGET = toPx1(L3, [(SCR[0] + SCR[2]) / 2, (SCR[1] + SCR[3]) / 2]);
 function nest(par, {on, at, scale}) { const s = par.s * scale; const p = toPx1(par, on); return {o: [p[0] - at[0] * s, p[1] - at[1] * s], s}; }
 function toPx1(l, q) { return [l.o[0] + q[0] * l.s, l.o[1] + q[1] * l.s]; }
 
-const glare = $('.glare');
 const scene = $('.zoom'), shots = [...document.querySelectorAll('.shot')], screen = $('.screen'), screenBg = $('.screen-bg');
 const body = $('.mock-body'), feed = $('.mock-feed'), veil = $('.veil'), mock = $('.screen .mock');
 const hero = $('.hero'), cta = $('.cta-wrap'), ctaLink = $('#cta');
@@ -87,36 +92,35 @@ function frame() {
   const F = [TARGET[0] - (D[0] - VW / 2) / k, TARGET[1] - (D[1] - VH / 2) / k]; // photo-1 point at screen center
   const toScreen = pt => [VW / 2 + (pt[0] - F[0]) * k, VH / 2 + (pt[1] - F[1]) * k];
 
-  [L1, L2, L3].forEach((l, i) => {
+  // each closer photo grows out of the middle of the one before: soft and feathered at first, sharp once it fills the
+  // screen, while the photo it replaces goes out of focus. A sharp edge never meets a blurred one.
+  const grow = LAYERS.map(l => lseg(l.s * Z, .15, 1.6));
+  const feather = e => 10 + 15 * (1 - e); // soft edge width, % of the photo's width
+  // a photo is fully covered once the next photo's solid (unfeathered) middle spans the whole screen
+  const fills = i => {
+    const l = LAYERS[i], S = l.s * Z, [x, y] = toScreen(l.o), w = S * W, h = w * 9 / 16, f = feather(grow[i]) / 100 * w;
+    return x + f <= 0 && y + f <= 0 && x + w - f >= VW && y + h - f >= VH;
+  };
+  LAYERS.forEach((l, i) => {
     const el = shots[i], S = l.s * Z; // S = this photo's own zoom (1 = exactly covers the viewport box)
     const [x, y] = toScreen(l.o);
     el.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${S.toFixed(5)})`;
-    const covered = i < 2 && [L2, L3][i].s * Z >= 1.02; // the next photo fills the screen: skip painting this one
-    const tiny = S * W < 3;
-    el.style.display = covered || tiny ? 'none' : '';
-    // out-of-focus foreground as the camera passes a photo (blur is in local px, so divide by S)
-    // photo 1 goes soft as photo 2 takes over; photo 2 starts soft and sharpens, so no sharp edge ever meets a blurred one
-    const e = lseg(L2.s * Z, .06, 1);
-    const blur = i === 0 ? clamp((Z - 3) / 10) * 8 : i === 1 ? (1 - e) * 5 + clamp((S - 1.6) / 4) * 7 : clamp((S - 1.8) / 2) * 4;
-    el.style.filter = blur > .05 ? `blur(${(blur / S).toFixed(3)}px)` : 'none';
+    const last = i === LAYERS.length - 1;
+    el.style.display = (!last && fills(i + 1)) || S * W < 3 ? 'none' : '';
+    const e = i ? grow[i] : 1;
+    const blur = (1 - e) * 4 + (last ? clamp((S - 1.8) / 2) * 4 : grow[i + 1] * 6); // in screen px
+    el.style.filter = blur > .05 ? `blur(${(blur / S).toFixed(3)}px)` : 'none'; // blur is in local px, so divide by S
+    if (!i) return;
+    el.style.opacity = rm ? 1 : Math.min(1, e * 4).toFixed(3);
+    if (last && e >= 1) clearMask(el); else rectMask(el, 0, 100, 0, 100, feather(e));
   });
-  // photo 2: fades in while still small, edges feathered into the tower glass until it covers the screen
-  const S2 = L2.s * Z;
-  shots[1].style.opacity = rm ? 1 : clamp((Z - 1.3) / 2);
-  const e2 = lseg(S2, .06, 1); // the in-focus area grows from the center until it covers the whole photo
-  if (e2 < 1) blobMask(shots[1], (100 * e2 ** 4).toFixed(2), (65 + 36 * e2).toFixed(2)); else clearMask(shots[1]);
-  // glare rises as photo 2 starts to show and is gone once photo 2 fills the screen (a bell curve on the zoom scale)
-  const gp = lseg(S2, .12, 1.1);
-  glare.style.opacity = rm ? 0 : (Math.sin(Math.PI * gp) ** 2 * .9).toFixed(3);
-  // photo 3: starts clipped to its window pane (= photo 2's lit window), then widens to its full frame
-  const S3 = L3.s * Z, e3 = lseg(S3, .25, 1);
-  if (e3 < 1) rectMask(shots[2], 15.6 * (1 - e3), 82 + 18 * e3, 0, 100, 4 * (1 - e3) + .01); else clearMask(shots[2]);
+  const S3 = L3.s * Z;
 
   // the Tally screen rides on photo 3's monitor; a dark backing covers the AI-drawn screen underneath
   const a = toScreen(toPx1(L3, [SCR[0], SCR[1]])), b = toScreen(toPx1(L3, [SCR[2], SCR[3]]));
   const rw = b[0] - a[0], rh = b[1] - a[1], show = S3 * W > 40 ? 1 : 0;
   screenBg.style.transform = `translate(${a[0].toFixed(2)}px, ${a[1].toFixed(2)}px) scale(${(rw / 100).toFixed(4)}, ${(rh / 100).toFixed(4)})`;
-  screenBg.style.display = shots[2].style.display;
+  screenBg.style.display = shots[LAYERS.length - 1].style.display;
   const m = Math.min(1, rw / VW, rh / VH);
   screen.style.opacity = show;
   screen.style.transform = `translate(${((a[0] + b[0]) / 2 - VW / 2).toFixed(2)}px, ${((a[1] + b[1]) / 2 - VH / 2).toFixed(2)}px) scale(${m.toFixed(5)})`;
